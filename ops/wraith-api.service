@@ -1,0 +1,41 @@
+# /etc/systemd/system/wraith-api.service
+#
+#   sudo cp ops/wraith-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now wraith-api
+
+[Unit]
+Description=Wraith API (jobs, tenders, scholarships)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wraith
+Group=wraith
+WorkingDirectory=/srv/wraith/backend
+EnvironmentFile=/srv/wraith/backend/.env
+ExecStart=/usr/bin/node dist/index.js
+
+# The crawler and scheduler hold in-flight work; give them time to finish a
+# page rather than killing mid-write.
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Hardening. The process needs outbound network and its own directory only.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/wraith/backend
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wraith-api
+
+[Install]
+WantedBy=multi-user.target

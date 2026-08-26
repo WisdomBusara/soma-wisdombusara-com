@@ -1,0 +1,42 @@
+app = "wraith-waha"
+primary_region = "bom"
+
+[build]
+  image = "devlikeapro/waha:latest"
+
+[env]
+  WHATSAPP_DEFAULT_ENGINE = "GOWS"
+  WAHA_DASHBOARD_ENABLED = "true"
+  WAHA_DASHBOARD_ALLOW_BASIC_AUTH = "true"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 10
+    soft_limit = 8
+
+  [[services.tcp_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[mounts]]
+  source = "waha_sessions"
+  destination = "/app/.sessions"
+
+[[vm]]
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 1

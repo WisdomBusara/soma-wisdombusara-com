@@ -1,0 +1,39 @@
+app = "wraith-backend"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  COOKIE_SAMESITE = "LAX"
+  TELEGRAM_MODE = "webhook"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 150
+    soft_limit = 100
+
+  # Generous timeouts: the nightly scrape is CPU-heavy on a shared core and
+  # briefly slows /health — don't let that pull the machine off the proxy.
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "10s"
+    grace_period = "30s"
+    method = "get"
+    path = "/health"
+    protocol = "http"

@@ -67,7 +67,7 @@ function Shell() {
   return (
     <div className="layout">
       <nav className="sidebar">
-        <div className="sidebar-logo">Wraith<span>Admin</span></div>
+        <div className="sidebar-logo">Wisdom Busara<span>Admin</span></div>
         <div className="sidebar-nav">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => isActive ? 'active' : ''}>

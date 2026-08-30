@@ -27,7 +27,7 @@ export function LoginPage() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)' }}>Wraith<span style={{ color: 'var(--text)' }}>Admin</span></div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)' }}>Wisdom Busara<span style={{ color: 'var(--text)' }}>Admin</span></div>
           <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>Sign in to your dashboard</div>
         </div>
 

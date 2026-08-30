@@ -436,7 +436,7 @@ export function RestorePage() {
         </button>
       </form>
       <p className="muted">
-        Lost your code? Email <a href="mailto:admin@neithlogic.com">admin@neithlogic.com</a> with
+        Lost your code? Email <a href="mailto:support@wisdombusara.com">support@wisdombusara.com</a> with
         the phone number or email you paid with.
       </p>
     </div>

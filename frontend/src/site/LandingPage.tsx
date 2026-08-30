@@ -55,7 +55,7 @@ export function LandingPage() {
   return (
     <div className="landing">
       <section className="hero">
-        <div className="hero-eyebrow">A Neithlogic product</div>
+        <div className="hero-eyebrow">A Wisdom Busara product</div>
         <h1 className="hero-title">
           The scholarships that fund you <em>never make the listicles.</em>
         </h1>

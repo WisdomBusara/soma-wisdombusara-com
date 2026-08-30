@@ -83,18 +83,16 @@ export const RemoteDatasetProvider: UniversityDiscoveryProvider = {
   async discover(ctx) {
     const url = env.UNIVERSITY_DATASET_URL;
     if (!url) return [];
-    const res = await fetchPage(url, { allowBrowser: false });
-    if (!res.ok) {
-      logger.warn({ url, error: res.error }, 'scholarship: remote university dataset unreachable');
-      return [];
-    }
     let rows: any[] = [];
     try {
-      // fetchPage strips JSON punctuation for text analysis, so re-fetch raw
-      const raw = res.html ?? res.text;
-      rows = JSON.parse(raw);
-    } catch {
-      logger.warn({ url }, 'scholarship: remote university dataset is not valid JSON');
+      const response = await fetch(url);
+      if (!response.ok) {
+        logger.warn({ url, status: response.status }, 'scholarship: remote university dataset unreachable');
+        return [];
+      }
+      rows = await response.json();
+    } catch (err) {
+      logger.warn({ url, err }, 'scholarship: remote university dataset fetch/parse failed');
       return [];
     }
     if (!Array.isArray(rows)) return [];

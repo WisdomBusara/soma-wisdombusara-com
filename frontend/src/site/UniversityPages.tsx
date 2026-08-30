@@ -68,7 +68,7 @@ function SiteChrome() {
           <span className="sch-dot">·</span>
           <Link to="/restore">Restore access</Link>
           <span className="sch-dot">·</span>
-          <a href="mailto:admin@neithlogic.com">Contact</a>
+          <a href="mailto:support@wisdombusara.com">Contact</a>
         </p>
       </footer>
     </div>

@@ -102,6 +102,11 @@ const envSchema = z.object({
   SCHOLARSHIP_TELEGRAM_BOT_TOKEN: z.string().optional(),
   SCHOLARSHIP_TELEGRAM_BOT_USERNAME: z.string().optional(),
   SCHOLARSHIP_TELEGRAM_CHANNEL: z.string().optional(),
+  // Human-clickable invite links sent in the post-payment welcome message —
+  // distinct from WAHA_GROUP_ID/SCHOLARSHIP_TELEGRAM_CHANNEL, which are the
+  // internal ids used to broadcast new scholarships into those same groups.
+  SCHOLARSHIP_WHATSAPP_GROUP_INVITE_LINK: z.string().optional(),
+  SCHOLARSHIP_TELEGRAM_GROUP_INVITE_LINK: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

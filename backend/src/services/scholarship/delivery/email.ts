@@ -151,6 +151,58 @@ export async function sendWelcomeEmail(to: string, restoreCode?: string): Promis
   }
 }
 
+/** Sent once, right after a payment turns into an active access grant. */
+export async function sendPaymentWelcomeEmail(
+  to: string,
+  opts: { restoreCode?: string; planName?: string; whatsappGroupLink?: string | null; telegramGroupLink?: string | null }
+): Promise<{ ok: boolean; error?: string }> {
+  const t = getTransporter();
+  if (!t || !env.EMAIL_FROM) return { ok: false, error: 'email_not_configured' };
+  const siteUrl = (env.SCHOLARSHIP_SITE_URL ?? '').replace(/\/$/, '');
+
+  const groupButtons = [
+    opts.whatsappGroupLink
+      ? `<a href="${opts.whatsappGroupLink}" style="display:inline-block;background:#25D366;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-family:sans-serif;margin-right:8px;">Join WhatsApp group</a>`
+      : '',
+    opts.telegramGroupLink
+      ? `<a href="${opts.telegramGroupLink}" style="display:inline-block;background:#229ED9;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-family:sans-serif;">Join Telegram group</a>`
+      : ''
+  ].filter(Boolean).join('');
+
+  try {
+    await t.sendMail({
+      from: env.EMAIL_FROM,
+      to,
+      subject: 'Payment confirmed — full access unlocked',
+      html: `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;background:#faf9f6;padding:24px;">
+        <h1 style="font-size:22px;color:#1a1a18;">You&rsquo;re in${opts.planName ? ` — ${escapeHtml(opts.planName)}` : ''}.</h1>
+        <p style="color:#45423d;font-size:15px;line-height:1.6;">
+          Your payment is confirmed. Full access is active — unlimited listings, match scoring, no ads.
+        </p>
+        ${opts.restoreCode ? `<div style="background:#fff;border:1px dashed #1f6f4a;border-radius:12px;padding:18px;margin:18px 0;">
+          <div style="color:#6b6862;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Your restore code</div>
+          <div style="font-family:monospace;font-size:26px;font-weight:700;letter-spacing:4px;color:#1f6f4a;">${escapeHtml(opts.restoreCode)}</div>
+          <p style="color:#6b6862;font-size:13px;">Keep this to restore access on another device.</p>
+        </div>` : ''}
+        ${groupButtons ? `<p style="color:#45423d;font-size:14px;margin-top:22px;margin-bottom:10px;">Join for new scholarship alerts as we find them:</p><p>${groupButtons}</p>` : ''}
+        <a href="${siteUrl}/scholarships" style="display:inline-block;background:#1f6f4a;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-family:sans-serif;margin-top:18px;">Browse scholarships</a>
+      </div>`,
+      text: [
+        `Payment confirmed${opts.planName ? ` — ${opts.planName}` : ''}. Full access is active.`,
+        opts.restoreCode ? `\nYour restore code: ${opts.restoreCode}\nKeep it to restore access on another device.` : '',
+        opts.whatsappGroupLink ? `\nJoin WhatsApp group: ${opts.whatsappGroupLink}` : '',
+        opts.telegramGroupLink ? `\nJoin Telegram group: ${opts.telegramGroupLink}` : '',
+        `\n${siteUrl}/scholarships`
+      ].join('')
+    });
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err, to }, 'scholarship-email: payment welcome send failed');
+    return { ok: false, error: String(err?.message ?? 'send_failed') };
+  }
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {

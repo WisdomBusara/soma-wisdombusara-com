@@ -113,3 +113,57 @@ export async function broadcastToGroup(scholarships: EmailScholarship[]): Promis
   if (!env.WAHA_GROUP_ID) return { ok: false, error: 'no_group_configured' };
   return sendWhatsAppToChat(env.WAHA_GROUP_ID, scholarships);
 }
+
+/**
+ * Add a paying member directly into the configured WhatsApp group.
+ *
+ * Best-effort: WhatsApp lets a person restrict who can add them to groups, in
+ * which case this fails even with a correctly configured session, so callers
+ * must fall back to messaging the invite link rather than treating this as
+ * the only path to "joined the group".
+ */
+export async function addToGroup(phone: string): Promise<{ ok: boolean; error?: string }> {
+  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
+  if (!env.WAHA_GROUP_ID) return { ok: false, error: 'no_group_configured' };
+
+  const session = env.WAHA_SESSION ?? 'default';
+  const participantId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
+
+  try {
+    const res = await wahaFetch(`/api/${session}/groups/${encodeURIComponent(env.WAHA_GROUP_ID)}/participants/add`, {
+      method: 'POST',
+      body: JSON.stringify({ participants: [participantId] })
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      logger.warn({ status: res.status, body: body.slice(0, 200) }, 'scholarship-whatsapp: add to group failed');
+      return { ok: false, error: `waha_${res.status}` };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err }, 'scholarship-whatsapp: add to group error');
+    return { ok: false, error: String(err?.message ?? 'add_failed') };
+  }
+}
+
+/** A plain text message to one number — used for the post-payment welcome. */
+export async function sendWhatsAppText(phone: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
+  const session = env.WAHA_SESSION ?? 'default';
+  const chatId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
+  try {
+    const res = await wahaFetch('/api/sendText', {
+      method: 'POST',
+      body: JSON.stringify({ session, chatId, text })
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      logger.warn({ status: res.status, body: body.slice(0, 200) }, 'scholarship-whatsapp: text send failed');
+      return { ok: false, error: `waha_${res.status}` };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err }, 'scholarship-whatsapp: text send error');
+    return { ok: false, error: String(err?.message ?? 'send_failed') };
+  }
+}

@@ -15,6 +15,9 @@ import {
   issueAccessToken, setAccessCookie, clearAccessCookie,
   generateRestoreCode, hashRestoreCode, accessSummary
 } from '../services/scholarship/paywall';
+import { SubscriberModel, type DeliveryChannel } from '../models/scholarship/subscriber';
+import { sendPaymentWelcomeEmail, emailConfigured } from '../services/scholarship/delivery/email';
+import { addToGroup, sendWhatsAppText, whatsappConfigured } from '../services/scholarship/delivery/whatsapp';
 
 /**
  * Checkout, access restore, and ad delivery.
@@ -350,6 +353,13 @@ export async function grantAccessForPayment(ref: string): Promise<GrantResult | 
       source: 'web'
     });
     logger.info({ ref, plan: plan.name }, 'scholarship: web access granted');
+    void provisionDeliveryOnGrant({
+      accessId: grant._id,
+      email: payment.email ?? undefined,
+      phone: payment.whatsappPhone ?? undefined,
+      planName: plan.name,
+      restoreCode
+    }).catch((err) => logger.error({ err, ref }, 'scholarship: post-payment delivery provisioning failed'));
     return { id: String(grant._id), endsAt, planName: plan.name, restoreCode };
   } catch (err: any) {
     // Lost a race with the webhook — re-read rather than fail the reader
@@ -357,5 +367,63 @@ export async function grantAccessForPayment(ref: string): Promise<GrantResult | 
     if (winner) return { id: String(winner._id), endsAt: winner.endsAt, planName: winner.planName ?? '' };
     logger.error({ err, ref }, 'scholarship: access grant failed');
     return null;
+  }
+}
+
+/**
+ * Everything that happens once, right after a payment turns into an active
+ * grant: auto-subscribe the payer to future scholarship alerts on whichever
+ * channels we actually have an address for, and welcome them with the group
+ * invite links and their restore code.
+ *
+ * WhatsApp payers (M-Pesa) get a direct add-to-group attempt first — WhatsApp
+ * lets a person restrict who can add them, so this is best-effort and always
+ * falls back to a text message with the join link when it fails.
+ */
+async function provisionDeliveryOnGrant(opts: {
+  accessId: unknown;
+  email?: string;
+  phone?: string;
+  planName: string;
+  restoreCode: string;
+}): Promise<void> {
+  const realEmail = opts.email && !opts.email.endsWith('@mpesa.wisdombusara.com') ? opts.email.toLowerCase() : undefined;
+  const phone = opts.phone;
+
+  const channels: DeliveryChannel[] = [];
+  if (realEmail) channels.push('email');
+  if (phone) channels.push('whatsapp');
+
+  if (channels.length > 0) {
+    await SubscriberModel.findOneAndUpdate(
+      { accessId: opts.accessId },
+      { $set: { accessId: opts.accessId, channels, email: realEmail, whatsappPhone: phone, status: 'active' } },
+      { upsert: true }
+    );
+  }
+
+  const whatsappGroupLink = env.SCHOLARSHIP_WHATSAPP_GROUP_INVITE_LINK || null;
+  const telegramGroupLink = env.SCHOLARSHIP_TELEGRAM_GROUP_INVITE_LINK || null;
+
+  if (realEmail && emailConfigured()) {
+    void sendPaymentWelcomeEmail(realEmail, {
+      restoreCode: opts.restoreCode,
+      planName: opts.planName,
+      whatsappGroupLink,
+      telegramGroupLink
+    }).catch(() => undefined);
+  }
+
+  if (phone && whatsappConfigured()) {
+    const added = await addToGroup(phone).catch(() => ({ ok: false, error: 'add_failed' }));
+    if (!added.ok && whatsappGroupLink) {
+      const lines = [
+        `You're in! Full access to Wisdom Busara Scholarships is active.`,
+        `Join our WhatsApp group for new scholarship alerts: ${whatsappGroupLink}`,
+        telegramGroupLink ? `Telegram: ${telegramGroupLink}` : null,
+        `Restore code (keep this): ${opts.restoreCode}`
+      ].filter(Boolean);
+      void sendWhatsAppText(phone, lines.join('\n')).catch(() => undefined);
+    }
   }
 }

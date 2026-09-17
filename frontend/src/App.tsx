@@ -39,6 +39,7 @@ const NAV = [
 function Shell() {
   const [me, setMe] = React.useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
   const navigate = useNavigate();
 
   const refreshMe = React.useCallback(async () => {
@@ -53,6 +54,19 @@ function Shell() {
   }, []);
 
   React.useEffect(() => { void refreshMe(); }, [refreshMe]);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('adminDarkMode') === 'true';
+    setIsDarkMode(saved);
+    document.documentElement.setAttribute('data-theme', saved ? 'dark' : 'light');
+  }, []);
+
+  const toggleDarkMode = () => {
+    const newValue = !isDarkMode;
+    setIsDarkMode(newValue);
+    localStorage.setItem('adminDarkMode', String(newValue));
+    document.documentElement.setAttribute('data-theme', newValue ? 'dark' : 'light');
+  };
 
   const logout = async () => {
     try { await apiFetch('/auth/logout', { method: 'POST' }); } finally {
@@ -78,7 +92,12 @@ function Shell() {
         </div>
         <div className="sidebar-footer">
           <div className="sidebar-user">{me.email}</div>
-          <button className="btn secondary sidebar-logout" onClick={logout}>Sign out</button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn secondary" onClick={toggleDarkMode} style={{ fontSize: '14px', flex: 1 }} title="Toggle dark mode">
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+            <button className="btn secondary sidebar-logout" onClick={logout}>Sign out</button>
+          </div>
         </div>
       </nav>
 

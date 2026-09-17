@@ -272,6 +272,18 @@ export async function processUrl(url: string, opts: ProcessOptions = {}): Promis
 
   const draft = extraction.draft;
 
+  // ── Skip expired scholarships ──────────────────────────────────────────────
+  // Do not save scholarships with passed deadlines — they're closed anyway.
+  if (draft.deadline.date && draft.deadline.date < new Date()) {
+    const daysOverdue = Math.floor((new Date().getTime() - draft.deadline.date.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      url: page.finalUrl,
+      status: 'FAILED',
+      reason: `deadline has passed (${daysOverdue} days ago) — skipping expired scholarship`,
+      linksEnqueued
+    };
+  }
+
   // ── Data-quality gate (§46) ───────────────────────────────────────────────
   // Enough evidence to be a record at all: it must carry at least two of
   // funding / eligibility / deadline / application information.

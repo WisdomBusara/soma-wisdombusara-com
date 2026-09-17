@@ -17,6 +17,8 @@
     "scholarships:run": "tsx src/cli/scholarships.ts run",
     "scholarships:reprocess-failed": "tsx src/cli/scholarships.ts reprocess-failed",
     "scholarships:seed-plans": "tsx src/cli/scholarships.ts seed-plans",
+    "scholarships:cleanup": "tsx src/cli/scholarships.ts cleanup",
+    "scholarships:discovery-report": "tsx src/cli/scholarships.ts discovery-report",
     "scholarships:deliver": "tsx src/cli/deliver.ts"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ import { closeBrowser } from '../services/scholarship/fetcher';
 import { ensureScholarshipIndexes } from '../services/scholarship/indexes';
 import { seedsForCountries } from '../services/scholarship/seeds/universities';
 import { activeCountries } from '../services/scholarship/seeds/countries';
+import { cleanupExpiredScholarships, reportNewDiscoveries } from '../services/scholarship/cleanup';
 
 /**
  * Operations CLI (§50, §51).
@@ -258,6 +259,25 @@ async function cmdSeedPlans(args: Args): Promise<void> {
   out('SEED PLANS', results);
 }
 
+async function cmdCleanup(args: Args): Promise<void> {
+  const adminEmail = str(args.email) || env.INITIAL_ADMIN_EMAIL;
+  const result = await cleanupExpiredScholarships({
+    adminEmail,
+    dryRun: Boolean(args['dry-run'])
+  });
+  out('CLEANUP EXPIRED', result);
+}
+
+async function cmdDiscoveryReport(args: Args): Promise<void> {
+  const adminEmail = str(args.email) || env.INITIAL_ADMIN_EMAIL;
+  const sinceHours = num(args.since) ?? 24;
+  const result = await reportNewDiscoveries({
+    adminEmail,
+    sinceHours
+  });
+  out('DISCOVERY REPORT', result);
+}
+
 const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   seed: cmdSeed,
   'discover-universities': cmdDiscoverUniversities,
@@ -268,7 +288,9 @@ const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   status: cmdStatus,
   run: cmdRun,
   'reprocess-failed': cmdReprocessFailed,
-  'seed-plans': cmdSeedPlans
+  'seed-plans': cmdSeedPlans,
+  cleanup: cmdCleanup,
+  'discovery-report': cmdDiscoveryReport
 };
 
 async function main(): Promise<void> {
@@ -291,6 +313,8 @@ Commands:
   status                   Print engine metrics
   run                      Full cycle: discover → crawl → statuses → reprioritise
   reprocess-failed         Reset FAILED crawl targets and re-run them
+  cleanup                  Remove expired scholarships and send admin alert
+  discovery-report         Alert admin of newly discovered scholarships
 
 Flags:
   --dry-run                Read and classify, write nothing
@@ -300,6 +324,8 @@ Flags:
   --scholarship=<id>       Target scholarship (verify)
   --limit=<n>              Cap the number of items processed
   --no-ai                  Force rule-based extraction even if AI is enabled
+  --email=<addr>           Admin email for alerts (cleanup, discovery-report)
+  --since=<hours>          Hours back for discovery report (default: 24)
 
 Engine currently: crawler=${env.SCHOLARSHIP_CRAWLER_ENABLED} discovery=${env.UNIVERSITY_DISCOVERY_ENABLED} ai=${env.AI_EXTRACTION_ENABLED} playwright=${env.PLAYWRIGHT_ENABLED}
 `);

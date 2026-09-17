@@ -167,3 +167,77 @@ function prettyFunding(t: string): string {
   };
   return map[t] ?? t.replace(/_/g, ' ').toLowerCase();
 }
+
+/** Alert email for admin when scholarships expire. */
+export async function sendExpiryAlertEmail(
+  adminEmail: string,
+  expiredCount: number,
+  sampleScholarships: { title: string; university: string | null; country: string | null }[]
+): Promise<{ ok: boolean; error?: string }> {
+  const t = getTransporter();
+  if (!t || !env.EMAIL_FROM) return { ok: false, error: 'email_not_configured' };
+
+  const rows = sampleScholarships
+    .slice(0, 10)
+    .map((s) => `<li>${escapeHtml(s.title)}<br><small style="color:#6b6862;">${escapeHtml(s.university ?? s.country ?? 'Unknown')}</small></li>`)
+    .join('');
+
+  try {
+    await t.sendMail({
+      from: env.EMAIL_FROM,
+      to: adminEmail,
+      subject: `${expiredCount} scholarships expired and removed`,
+      html: `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;background:#faf9f6;padding:24px;">
+        <h1 style="font-size:22px;color:#1a1a18;">Scholarship Cleanup</h1>
+        <p style="color:#45423d;font-size:15px;line-height:1.6;">
+          ${expiredCount} scholarships with deadlines more than 120 days past have been removed from the site.
+        </p>
+        <h3 style="color:#1a1a18;font-size:16px;margin-top:20px;">Sample removed:</h3>
+        <ul style="color:#45423d;font-size:14px;line-height:1.8;">${rows}</ul>
+      </div>`,
+      text: `${expiredCount} scholarships expired and were removed from the site.\n\nSample:\n${sampleScholarships.slice(0, 10).map((s) => `• ${s.title}`).join('\n')}`
+    });
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err, adminEmail }, 'scholarship-email: expiry alert send failed');
+    return { ok: false, error: String(err?.message ?? 'send_failed') };
+  }
+}
+
+/** Alert email for admin when new scholarships are discovered. */
+export async function sendDiscoveryAlertEmail(
+  adminEmail: string,
+  discoveryCount: number,
+  sampleScholarships: { title: string; university: string | null; country: string | null }[]
+): Promise<{ ok: boolean; error?: string }> {
+  const t = getTransporter();
+  if (!t || !env.EMAIL_FROM) return { ok: false, error: 'email_not_configured' };
+
+  const rows = sampleScholarships
+    .slice(0, 15)
+    .map((s) => `<li>${escapeHtml(s.title)}<br><small style="color:#6b6862;">${escapeHtml(s.university ?? s.country ?? 'Unknown')}</small></li>`)
+    .join('');
+
+  try {
+    await t.sendMail({
+      from: env.EMAIL_FROM,
+      to: adminEmail,
+      subject: `${discoveryCount} new scholarships found`,
+      html: `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;background:#faf9f6;padding:24px;">
+        <h1 style="font-size:22px;color:#1a1a18;">Discovery Report</h1>
+        <p style="color:#45423d;font-size:15px;line-height:1.6;">
+          ${discoveryCount} new scholarship opportunities were found and added to the index.
+        </p>
+        <h3 style="color:#1a1a18;font-size:16px;margin-top:20px;">Latest additions:</h3>
+        <ul style="color:#45423d;font-size:14px;line-height:1.8;">${rows}</ul>
+      </div>`,
+      text: `${discoveryCount} new scholarships discovered.\n\nLatest:\n${sampleScholarships.slice(0, 15).map((s) => `• ${s.title}`).join('\n')}`
+    });
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err, adminEmail }, 'scholarship-email: discovery alert send failed');
+    return { ok: false, error: String(err?.message ?? 'send_failed') };
+  }
+}

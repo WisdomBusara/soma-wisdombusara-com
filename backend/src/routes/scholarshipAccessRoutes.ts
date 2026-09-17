@@ -80,7 +80,7 @@ export function scholarshipAccessRouter() {
    */
   router.get('/access/plans', async (_req, res, next) => {
     try {
-      const plans = await PlanModel.find({ isActive: true }).sort({ amountKobo: 1 }).lean();
+      const plans = await PlanModel.find({ isActive: true }).sort({ isTrial: -1, amountKobo: 1 }).lean();
       res.setHeader('Cache-Control', 'public, max-age=120');
       return res.json({
         plans: plans.map((p) => ({
@@ -91,7 +91,8 @@ export function scholarshipAccessRouter() {
           amountKobo: p.amountKobo,
           currency: p.currency,
           durationMinutes: p.durationMinutes,
-          durationLabel: humanDuration(p.durationMinutes)
+          durationLabel: humanDuration(p.durationMinutes),
+          isTrial: p.isTrial
         })),
         freeViewsPerMonth: env.SCHOLARSHIP_FREE_VIEWS_PER_MONTH
       });

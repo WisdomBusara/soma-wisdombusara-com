@@ -10,6 +10,7 @@ type Plan = {
   videoUrl?: string;
   description?: string;
   isActive: boolean;
+  isTrial: boolean;
 };
 
 function fmtMoney(kobo: number, currency: string) {
@@ -25,7 +26,7 @@ function fmtDuration(mins: number) {
 }
 
 // Form holds whole currency units (KSh); backend stores minor units (×100)
-const DEFAULT_FORM = { name: '', durationMinutes: 1440, amountMajor: 100, currency: 'KES', videoUrl: '', description: '', isActive: true };
+const DEFAULT_FORM = { name: '', durationMinutes: 1440, amountMajor: 100, currency: 'KES', videoUrl: '', description: '', isActive: true, isTrial: false };
 
 export function PlansPage() {
   const [plans, setPlans] = React.useState<Plan[]>([]);
@@ -125,6 +126,10 @@ export function PlansPage() {
             <input type="checkbox" className="input" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
             Active
           </label>
+          <label className="row" style={{ gap: 6, fontSize: 13 }}>
+            <input type="checkbox" className="input" checked={form.isTrial} onChange={(e) => setForm({ ...form, isTrial: e.target.checked })} />
+            Trial
+          </label>
           <button className="btn" onClick={create}>Create Plan</button>
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>Enter whole amounts: 20 = KSh 20, 1000 = KSh 1,000.</div>
@@ -160,6 +165,7 @@ export function PlansPage() {
                 </td>
                 <td>
                   <span className={`badge ${p.isActive ? 'green' : 'gray'}`}>{p.isActive ? 'Active' : 'Off'}</span>
+                  {p.isTrial && <span className="badge yellow" style={{ marginLeft: 6 }}>Trial</span>}
                 </td>
                 <td>
                   <div className="row">
@@ -207,6 +213,10 @@ export function PlansPage() {
                         <label className="row" style={{ gap: 6, fontSize: 13 }}>
                           <input type="checkbox" className="input" checked={editForm.isActive ?? true} onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })} />
                           Active
+                        </label>
+                        <label className="row" style={{ gap: 6, fontSize: 13 }}>
+                          <input type="checkbox" className="input" checked={editForm.isTrial ?? false} onChange={(e) => setEditForm({ ...editForm, isTrial: e.target.checked })} />
+                          Trial
                         </label>
                         <button className="btn" onClick={saveEdit}>Save</button>
                         <button className="btn secondary" onClick={() => setEditing(null)}>Cancel</button>

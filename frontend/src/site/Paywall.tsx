@@ -218,7 +218,7 @@ export function AdSlot({
 
 interface PlanOption {
   id: string; name: string; description: string | null;
-  amount: number; currency: string; durationLabel: string;
+  amount: number; currency: string; durationLabel: string; isTrial: boolean;
 }
 
 export function UpgradePage() {
@@ -332,7 +332,10 @@ export function UpgradePage() {
             className={`plan-card ${selected === p.id ? 'selected' : ''}`}
             onClick={() => setSelected(p.id)}
           >
-            <div className="plan-name">{p.name}</div>
+            <div className="plan-name">
+              {p.name}
+              {p.isTrial && <span className="plan-trial-badge">Try it</span>}
+            </div>
             <div className="plan-price">
               <span className="plan-currency">{p.currency}</span>
               {p.amount.toLocaleString()}

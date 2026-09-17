@@ -8,7 +8,8 @@ const planSchema = new Schema(
     currency: { type: String, required: true, default: 'NGN' },
     videoUrl: { type: String, required: false, trim: true },
     description: { type: String, required: false, trim: true },
-    isActive: { type: Boolean, required: true, default: true }
+    isActive: { type: Boolean, required: true, default: true },
+    isTrial: { type: Boolean, required: true, default: false }
   },
   { timestamps: true }
 );

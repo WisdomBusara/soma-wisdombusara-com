@@ -772,6 +772,12 @@ textarea.input { resize: vertical; min-height: 80px; width: 100%; }
 }
 .ad-landing_banner { max-width: 1080px; margin: 22px auto; }
 
+.plan-trial-badge {
+  display: inline-block; margin-left: 8px;
+  background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {

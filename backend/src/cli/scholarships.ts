@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { UniversityModel } from '../models/scholarship/University';
 import { ScholarshipModel } from '../models/scholarship/Scholarship';
 import { CrawlTargetModel } from '../models/scholarship/operational';
+import { PlanModel } from '../models/Plan';
 import { discoverUniversities } from '../services/scholarship/discovery/universityDiscovery';
 import { discoverScholarshipUrls, discoverForDueUniversities } from '../services/scholarship/discovery/scholarshipDiscovery';
 import { runCrawl, processUrl } from '../services/scholarship/pipeline';
@@ -234,6 +235,29 @@ async function cmdReprocessFailed(args: Args): Promise<void> {
   if (!args['no-crawl']) await cmdCrawl({ ...args, limit: String(limit) } as Args);
 }
 
+async function cmdSeedPlans(args: Args): Promise<void> {
+  const defaults = [
+    { name: '3-Day Trial', durationMinutes: 3 * 1440, amountKobo: 5000, currency: 'KES', description: 'Try full access for 3 days', isTrial: true },
+    { name: '1 Month', durationMinutes: 30 * 1440, amountKobo: 50000, currency: 'KES', description: 'Full access for 30 days', isTrial: false }
+  ];
+  const force = Boolean(args.force);
+  const results: Record<string, string> = {};
+  for (const plan of defaults) {
+    const existing = await PlanModel.findOne({ name: plan.name });
+    if (existing && !force) {
+      results[plan.name] = 'already exists — skipped (use --force to overwrite price/duration)';
+      continue;
+    }
+    await PlanModel.findOneAndUpdate(
+      { name: plan.name },
+      { $set: { ...plan, isActive: true } },
+      { upsert: true }
+    );
+    results[plan.name] = existing ? 'updated' : 'created';
+  }
+  out('SEED PLANS', results);
+}
+
 const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   seed: cmdSeed,
   'discover-universities': cmdDiscoverUniversities,
@@ -243,7 +267,8 @@ const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   verify: cmdVerify,
   status: cmdStatus,
   run: cmdRun,
-  'reprocess-failed': cmdReprocessFailed
+  'reprocess-failed': cmdReprocessFailed,
+  'seed-plans': cmdSeedPlans
 };
 
 async function main(): Promise<void> {

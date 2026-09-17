@@ -670,9 +670,9 @@ textarea.input { resize: vertical; min-height: 80px; width: 100%; }
   background: linear-gradient(180deg, transparent, var(--bg));
 }
 .paywall-card {
-  background: var(--surface); border: 1px solid var(--border);
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
   border-radius: 18px; padding: 34px; text-align: center; position: relative;
-  box-shadow: 0 6px 30px rgba(26, 26, 24, 0.07);
+  box-shadow: 0 6px 30px rgba(26, 26, 24, 0.07); box-sizing: border-box;
 }
 .paywall-badge {
   display: inline-block; background: var(--gold-dim); color: var(--gold);

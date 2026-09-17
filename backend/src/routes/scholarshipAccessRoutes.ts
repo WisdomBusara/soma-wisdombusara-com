@@ -170,7 +170,10 @@ export function scholarshipAccessRouter() {
       return res.json({ method: 'card', reference: ref, authorizationUrl: init.authorizationUrl });
     } catch (err: any) {
       if (err?.status === 502) {
-        return res.status(502).json({ error: 'payment_provider', message: 'The payment provider is unavailable. Please try again shortly.' });
+        // err.message is Paystack's own reason (e.g. an unsupported channel or
+        // a malformed phone number) — surfacing it is more useful than a flat
+        // "try again" for both the reader and whoever is debugging this.
+        return res.status(502).json({ error: 'payment_provider', message: err.message || 'The payment provider is unavailable. Please try again shortly.' });
       }
       return next(err);
     }

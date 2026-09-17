@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../config/env';
+import { logger } from '../config/logger';
 
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
@@ -9,6 +10,22 @@ const paystack = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+/**
+ * Axios throws a generic "Request failed with status code NNN" for any
+ * non-2xx response, discarding the body Paystack actually sent — which is
+ * where the real reason lives (e.g. "Mobile money is not enabled for this
+ * integration"). Unwrap it so callers and logs see that message instead.
+ */
+function unwrapPaystackError(err: unknown, fallback: string): Error {
+  if (axios.isAxiosError(err)) {
+    const body = err.response?.data as { message?: string } | undefined;
+    const message = body?.message || fallback;
+    logger.error({ status: err.response?.status, body: err.response?.data }, 'paystack: request rejected');
+    return Object.assign(new Error(message), { status: 502 });
+  }
+  return Object.assign(new Error(fallback), { status: 502 });
+}
 
 export type PaystackInitializeParams = {
   amountKobo: number;
@@ -29,10 +46,15 @@ export async function initializeTransaction(params: PaystackInitializeParams): P
   if (params.currency) body.currency = params.currency;
   if (params.metadata) body.metadata = params.metadata;
 
-  const resp = await paystack.post('/transaction/initialize', body);
+  let resp;
+  try {
+    resp = await paystack.post('/transaction/initialize', body);
+  } catch (err) {
+    throw unwrapPaystackError(err, 'Paystack initialize failed');
+  }
   const data = resp.data;
   if (!data?.status || !data?.data?.authorization_url) {
-    throw Object.assign(new Error('Paystack initialize failed'), { status: 502 });
+    throw Object.assign(new Error(data?.message || 'Paystack initialize failed'), { status: 502 });
   }
   return { authorizationUrl: String(data.data.authorization_url), reference: String(data.data.reference) };
 }
@@ -56,9 +78,14 @@ export async function chargeMpesa(params: {
   };
   if (params.metadata) body.metadata = params.metadata;
 
-  const resp = await paystack.post('/charge', body);
+  let resp;
+  try {
+    resp = await paystack.post('/charge', body);
+  } catch (err) {
+    throw unwrapPaystackError(err, 'Paystack M-Pesa charge failed');
+  }
   const data = resp.data;
-  if (!data?.status) throw Object.assign(new Error('Paystack M-Pesa charge failed'), { status: 502 });
+  if (!data?.status) throw Object.assign(new Error(data?.message || 'Paystack M-Pesa charge failed'), { status: 502 });
   return {
     chargeStatus: String(data.data?.status ?? ''),
     reference: String(data.data?.reference ?? params.reference)
@@ -71,9 +98,14 @@ export async function verifyTransaction(reference: string): Promise<{
   currency: string;
   customerEmail?: string;
 }> {
-  const resp = await paystack.get(`/transaction/verify/${encodeURIComponent(reference)}`);
+  let resp;
+  try {
+    resp = await paystack.get(`/transaction/verify/${encodeURIComponent(reference)}`);
+  } catch (err) {
+    throw unwrapPaystackError(err, 'Paystack verify failed');
+  }
   const data = resp.data;
-  if (!data?.status || !data?.data) throw Object.assign(new Error('Paystack verify failed'), { status: 502 });
+  if (!data?.status || !data?.data) throw Object.assign(new Error(data?.message || 'Paystack verify failed'), { status: 502 });
   return {
     status: String(data.data.status),
     amountKobo: Number(data.data.amount ?? 0),

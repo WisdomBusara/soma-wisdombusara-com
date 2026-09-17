@@ -309,6 +309,8 @@ export interface GrantResult {
   planName: string;
   /** Only returned on first creation — never re-shown for an existing grant */
   restoreCode?: string;
+  /** Telegram /connect code — display on the success page for users to redeem */
+  telegramConnectCode?: string;
 }
 
 /**
@@ -354,15 +356,22 @@ export async function grantAccessForPayment(ref: string): Promise<GrantResult | 
       source: 'web'
     });
     logger.info({ ref, plan: plan.name }, 'scholarship: web access granted');
+
+    // Pre-generate Telegram code so we can return it to the frontend for display
+    const telegramConnectCode = telegramConfigured() && Boolean(env.SCHOLARSHIP_TELEGRAM_CHANNEL)
+      ? Math.random().toString(36).slice(2, 8).toUpperCase()
+      : undefined;
+
     void provisionDeliveryOnGrant({
       accessId: grant._id,
       email: payment.email ?? undefined,
       phone: payment.whatsappPhone ?? undefined,
       planName: plan.name,
       restoreCode,
-      endsAt
+      endsAt,
+      telegramConnectCode
     }).catch((err) => logger.error({ err, ref }, 'scholarship: post-payment delivery provisioning failed'));
-    return { id: String(grant._id), endsAt, planName: plan.name, restoreCode };
+    return { id: String(grant._id), endsAt, planName: plan.name, restoreCode, telegramConnectCode };
   } catch (err: any) {
     // Lost a race with the webhook — re-read rather than fail the reader
     const winner = await ScholarshipAccessModel.findOne({ paystackReference: ref }).lean();
@@ -396,6 +405,7 @@ async function provisionDeliveryOnGrant(opts: {
   planName: string;
   restoreCode: string;
   endsAt: Date;
+  telegramConnectCode?: string;
 }): Promise<void> {
   const realEmail = opts.email && !opts.email.endsWith('@mpesa.wisdombusara.com') ? opts.email.toLowerCase() : undefined;
   const phone = opts.phone;
@@ -410,27 +420,24 @@ async function provisionDeliveryOnGrant(opts: {
   if (channels.length > 0) {
     sub = await SubscriberModel.findOneAndUpdate(
       { accessId: opts.accessId },
-      { $set: { accessId: opts.accessId, channels, email: realEmail, whatsappPhone: phone, status: 'active' } },
+      { $set: { accessId: opts.accessId, channels, email: realEmail, whatsappPhone: phone, status: 'active', telegramHandle: opts.telegramConnectCode } },
       { upsert: true, new: true }
     );
   }
 
   const whatsappGroupLink = env.SCHOLARSHIP_WHATSAPP_GROUP_INVITE_LINK || null;
-  let telegramConnectCode: string | null = null;
 
-  if (sub && telegramEnabled) {
-    if (sub.telegramChatId) {
-      // Already linked (e.g. a renewal) — hand them the fresh invite now.
-      void sendPersonalGroupInvite(sub.telegramChatId, opts.endsAt).catch(() => undefined);
-    } else {
-      // Not linked yet — reuse a still-valid pending code, or mint one. The
-      // webhook's /connect handler sends the actual invite once they use it.
-      telegramConnectCode = sub.telegramHandle && /^[A-Z0-9]{4,8}$/.test(sub.telegramHandle)
-        ? sub.telegramHandle
-        : Math.random().toString(36).slice(2, 8).toUpperCase();
-      sub.telegramHandle = telegramConnectCode;
+  if (sub && telegramEnabled && !sub.telegramChatId) {
+    // Store the code so /connect can find it later
+    if (opts.telegramConnectCode) {
+      sub.telegramHandle = opts.telegramConnectCode;
       await sub.save();
     }
+  }
+
+  if (sub && telegramEnabled && sub.telegramChatId) {
+    // Already linked (e.g. a renewal) — hand them the fresh invite now.
+    void sendPersonalGroupInvite(sub.telegramChatId, opts.endsAt).catch(() => undefined);
   }
 
   if (realEmail && emailConfigured()) {
@@ -438,7 +445,7 @@ async function provisionDeliveryOnGrant(opts: {
       restoreCode: opts.restoreCode,
       planName: opts.planName,
       whatsappGroupLink,
-      telegramConnectCode,
+      telegramConnectCode: opts.telegramConnectCode,
       telegramBotUsername: env.SCHOLARSHIP_TELEGRAM_BOT_USERNAME || null
     }).catch(() => undefined);
   }
@@ -449,7 +456,7 @@ async function provisionDeliveryOnGrant(opts: {
       const lines = [
         `You're in! Full access to Wisdom Busara Scholarships is active.`,
         `Join our WhatsApp group for new scholarship alerts: ${whatsappGroupLink}`,
-        telegramConnectCode ? `For the private Telegram group, message ${env.SCHOLARSHIP_TELEGRAM_BOT_USERNAME ?? 'our bot'} with: /connect ${telegramConnectCode}` : null,
+        opts.telegramConnectCode ? `For the private Telegram group, message ${env.SCHOLARSHIP_TELEGRAM_BOT_USERNAME ?? 'our bot'} with: /connect ${opts.telegramConnectCode}` : null,
         `Restore code (keep this): ${opts.restoreCode}`
       ].filter(Boolean);
       void sendWhatsAppText(phone, lines.join('\n')).catch(() => undefined);

@@ -48,10 +48,13 @@ function reference(): string {
  * Paystack requires an email. Readers paying by M-Pesa usually have not given
  * one, so we synthesise a stable, clearly-namespaced placeholder rather than
  * blocking checkout on a field the payment method does not need.
+ *
+ * The domain must resolve as a real-looking TLD — Paystack's own email
+ * validator rejects ".local" outright, confirmed by direct API testing.
  */
 function emailFor(input: { email?: string; phone?: string }): string {
   if (input.email) return input.email.toLowerCase();
-  return `${input.phone}@mpesa.scholarships.local`;
+  return `${input.phone}@mpesa.wisdombusara.com`;
 }
 
 export function scholarshipAccessRouter() {
@@ -332,7 +335,7 @@ export async function grantAccessForPayment(ref: string): Promise<GrantResult | 
 
   try {
     const grant = await ScholarshipAccessModel.create({
-      email: payment.email?.endsWith('@mpesa.scholarships.local') ? undefined : payment.email,
+      email: payment.email?.endsWith('@mpesa.wisdombusara.com') ? undefined : payment.email,
       phone: payment.whatsappPhone ?? undefined,
       planId: plan._id,
       planName: plan.name,

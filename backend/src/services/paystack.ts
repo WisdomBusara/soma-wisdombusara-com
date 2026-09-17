@@ -66,13 +66,18 @@ export async function chargeMpesa(params: {
   reference: string;
   metadata?: Record<string, unknown>;
 }): Promise<{ chargeStatus: string; reference: string }> {
+  // Paystack's mobile_money charge rejects both the local "0712…" form and the
+  // bare "254712…" form with "Invalid phone number format" — confirmed by
+  // direct API testing. Only the E.164 "+254712…" form is accepted.
+  const e164Phone = params.phone.startsWith('+') ? params.phone : `+${params.phone.replace(/^0/, '254')}`;
+
   const body: any = {
     amount: params.amountKobo,
     email: params.email,
     currency: 'KES',
     reference: params.reference,
     mobile_money: {
-      phone: params.phone,
+      phone: e164Phone,
       provider: 'mpesa'
     }
   };

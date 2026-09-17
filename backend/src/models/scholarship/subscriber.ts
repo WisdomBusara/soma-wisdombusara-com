@@ -53,6 +53,13 @@ const subscriberSchema = new Schema(
     // The last scholarship batch time we delivered, so we never resend.
     lastDeliveredAt: { type: Date },
 
+    // Group-membership enforcement (Telegram): when the "top up" reminder was
+    // last sent, and when they were last removed from the group for lapsing.
+    // Compared against the linked grant's startsAt/endsAt so a renewal's fresh
+    // period is never suppressed by a reminder sent for a prior one.
+    renewalReminderSentAt: { type: Date },
+    removedFromGroupAt: { type: Date },
+
     // Counters for observability
     deliveredCount: { type: Number, default: 0 },
     failureCount: { type: Number, default: 0 },

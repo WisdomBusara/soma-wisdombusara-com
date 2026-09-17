@@ -101,12 +101,18 @@ const envSchema = z.object({
   WAHA_GROUP_ID: z.string().optional(),
   SCHOLARSHIP_TELEGRAM_BOT_TOKEN: z.string().optional(),
   SCHOLARSHIP_TELEGRAM_BOT_USERNAME: z.string().optional(),
+  // The private members-only group: broadcasts land here (existing behaviour)
+  // AND the bot manages membership here (new) — same chat, one id. The bot
+  // must be an admin with "invite users" and "ban users" rights. Numeric chat
+  // id (looks like -1001234567890) — get it by adding the bot, posting once,
+  // then checking the bot's getUpdates or forwarding a group message to
+  // @userinfobot.
   SCHOLARSHIP_TELEGRAM_CHANNEL: z.string().optional(),
-  // Human-clickable invite links sent in the post-payment welcome message —
-  // distinct from WAHA_GROUP_ID/SCHOLARSHIP_TELEGRAM_CHANNEL, which are the
-  // internal ids used to broadcast new scholarships into those same groups.
+  // Human-clickable WhatsApp invite link kept only as an admin fallback — the
+  // payment flow's primary path for Telegram is a per-user single-use link
+  // generated against SCHOLARSHIP_TELEGRAM_CHANNEL, never a shared static one,
+  // since a shared link would bypass the paywall entirely.
   SCHOLARSHIP_WHATSAPP_GROUP_INVITE_LINK: z.string().optional(),
-  SCHOLARSHIP_TELEGRAM_GROUP_INVITE_LINK: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

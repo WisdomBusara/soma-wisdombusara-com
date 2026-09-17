@@ -154,20 +154,33 @@ export async function sendWelcomeEmail(to: string, restoreCode?: string): Promis
 /** Sent once, right after a payment turns into an active access grant. */
 export async function sendPaymentWelcomeEmail(
   to: string,
-  opts: { restoreCode?: string; planName?: string; whatsappGroupLink?: string | null; telegramGroupLink?: string | null }
+  opts: {
+    restoreCode?: string;
+    planName?: string;
+    whatsappGroupLink?: string | null;
+    /** Present when Telegram is configured and this reader hasn't linked a chat yet. */
+    telegramConnectCode?: string | null;
+    telegramBotUsername?: string | null;
+  }
 ): Promise<{ ok: boolean; error?: string }> {
   const t = getTransporter();
   if (!t || !env.EMAIL_FROM) return { ok: false, error: 'email_not_configured' };
   const siteUrl = (env.SCHOLARSHIP_SITE_URL ?? '').replace(/\/$/, '');
 
-  const groupButtons = [
-    opts.whatsappGroupLink
-      ? `<a href="${opts.whatsappGroupLink}" style="display:inline-block;background:#25D366;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-family:sans-serif;margin-right:8px;">Join WhatsApp group</a>`
-      : '',
-    opts.telegramGroupLink
-      ? `<a href="${opts.telegramGroupLink}" style="display:inline-block;background:#229ED9;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-family:sans-serif;">Join Telegram group</a>`
-      : ''
-  ].filter(Boolean).join('');
+  const telegramStep = opts.telegramConnectCode
+    ? `<div style="background:#eaf6fb;border-radius:12px;padding:16px 18px;margin:14px 0;">
+        <div style="color:#0f5876;font-size:13px;font-weight:600;margin-bottom:6px;">Join the private Telegram group</div>
+        <p style="color:#274a58;font-size:13.5px;line-height:1.6;margin:0 0 8px;">
+          Open Telegram, message <strong>${escapeHtml(opts.telegramBotUsername ?? 'our bot')}</strong>, and send:
+        </p>
+        <div style="font-family:monospace;background:#fff;border:1px solid #cfe6ef;border-radius:8px;padding:8px 12px;display:inline-block;font-size:14px;">/connect ${escapeHtml(opts.telegramConnectCode)}</div>
+        <p style="color:#274a58;font-size:12.5px;margin-top:8px;">You'll get a one-time link to the group right away.</p>
+      </div>`
+    : '';
+
+  const whatsappButton = opts.whatsappGroupLink
+    ? `<a href="${opts.whatsappGroupLink}" style="display:inline-block;background:#25D366;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-family:sans-serif;margin-top:6px;">Join WhatsApp group</a>`
+    : '';
 
   try {
     await t.sendMail({
@@ -185,14 +198,15 @@ export async function sendPaymentWelcomeEmail(
           <div style="font-family:monospace;font-size:26px;font-weight:700;letter-spacing:4px;color:#1f6f4a;">${escapeHtml(opts.restoreCode)}</div>
           <p style="color:#6b6862;font-size:13px;">Keep this to restore access on another device.</p>
         </div>` : ''}
-        ${groupButtons ? `<p style="color:#45423d;font-size:14px;margin-top:22px;margin-bottom:10px;">Join for new scholarship alerts as we find them:</p><p>${groupButtons}</p>` : ''}
+        ${telegramStep}
+        ${whatsappButton ? `<p style="margin-top:14px;">${whatsappButton}</p>` : ''}
         <a href="${siteUrl}/scholarships" style="display:inline-block;background:#1f6f4a;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-family:sans-serif;margin-top:18px;">Browse scholarships</a>
       </div>`,
       text: [
         `Payment confirmed${opts.planName ? ` — ${opts.planName}` : ''}. Full access is active.`,
         opts.restoreCode ? `\nYour restore code: ${opts.restoreCode}\nKeep it to restore access on another device.` : '',
+        opts.telegramConnectCode ? `\nJoin the private Telegram group: message ${opts.telegramBotUsername ?? 'our bot'} with /connect ${opts.telegramConnectCode}` : '',
         opts.whatsappGroupLink ? `\nJoin WhatsApp group: ${opts.whatsappGroupLink}` : '',
-        opts.telegramGroupLink ? `\nJoin Telegram group: ${opts.telegramGroupLink}` : '',
         `\n${siteUrl}/scholarships`
       ].join('')
     });

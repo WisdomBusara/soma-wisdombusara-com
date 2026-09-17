@@ -23,7 +23,7 @@ import { sendTelegram, broadcastToChannel, telegramConfigured } from './telegram
  * channel being down, never stops the others.
  */
 
-function toEmailShape(s: any): EmailScholarship {
+export function toEmailShape(s: any): EmailScholarship {
   return {
     id: String(s._id),
     title: s.title,

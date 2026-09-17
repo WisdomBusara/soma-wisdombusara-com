@@ -9,6 +9,7 @@ import { WhatsAppBotRunner } from './services/whatsappBotRunner';
 import { SubscriptionEnforcer } from './services/subscriptionEnforcer';
 import { JobScheduler } from './services/jobScheduler';
 import { ScholarshipScheduler } from './services/scholarship/scholarshipScheduler';
+import { ScholarshipAccessEnforcer } from './services/scholarship/scholarshipAccessEnforcer';
 
 async function main() {
   await connectMongo();
@@ -31,6 +32,12 @@ async function main() {
   const scholarshipScheduler = new ScholarshipScheduler();
   scholarshipScheduler.start();
 
+  // Independent of the crawler flag — the paywall grants access whether or
+  // not the crawler is enabled, so its Telegram group must be enforced either
+  // way. No-ops per tick if SCHOLARSHIP_TELEGRAM_CHANNEL is not configured.
+  const scholarshipAccessEnforcer = new ScholarshipAccessEnforcer();
+  scholarshipAccessEnforcer.start(5 * 60_000); // check every 5 minutes
+
   const app = createApp({ botRunner, waBotRunner });
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
@@ -44,6 +51,7 @@ async function main() {
     enforcer.stop();
     jobScheduler.stop();
     scholarshipScheduler.stop();
+    scholarshipAccessEnforcer.stop();
     server.close(() => {
       logger.info('HTTP server closed');
       process.exit(0);

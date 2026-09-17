@@ -1,6 +1,7 @@
 import { env } from '../../../config/env';
 import { logger } from '../../../config/logger';
 import type { EmailScholarship } from './email';
+import { sendMessage as tgSendMessage, createSingleUseInviteLink, kickChatMember, unbanIfBanned } from '../../telegramApi';
 
 /**
  * Telegram delivery channel via the Bot API.
@@ -109,5 +110,67 @@ export async function ensureTelegramWebhook(): Promise<void> {
     logger.info({ url }, 'scholarship-telegram: webhook set');
   } catch (err) {
     logger.warn({ err }, 'scholarship-telegram: failed to set webhook');
+  }
+}
+
+/** A plain text message — used for command replies and enforcement notices. */
+export async function sendTelegramText(chatId: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  if (!configured()) return { ok: false, error: 'telegram_not_configured' };
+  try {
+    await tgSendMessage(env.SCHOLARSHIP_TELEGRAM_BOT_TOKEN!, chatId, text);
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err }, 'scholarship-telegram: text send error');
+    return { ok: false, error: String(err?.message ?? 'send_failed') };
+  }
+}
+
+// ── Group membership (the private, paid group) ─────────────────────────────
+//
+// Telegram bots cannot silently add a specific person to a group — that is a
+// platform-level anti-spam restriction, not a gap in this code. The only
+// compliant path is a personal, single-use invite link the person clicks
+// themselves, which is what sendPersonalGroupInvite hands out. Removal, on
+// the other hand, a bot genuinely can do unattended: removeFromTelegramGroup
+// bans then immediately unbans, which kicks them without a permanent ban, so
+// a later renewal can invite them straight back in.
+
+/**
+ * Create and send a one-time invite link to the private group, valid until
+ * the reader's access ends. Requires the bot to already have a private chat
+ * with this user (they must have pressed /start or /connect first) — Telegram
+ * does not let a bot message someone who has never opened a chat with it.
+ */
+export async function sendPersonalGroupInvite(chatId: string, expiresAt: Date): Promise<{ ok: boolean; error?: string }> {
+  if (!configured() || !env.SCHOLARSHIP_TELEGRAM_CHANNEL) return { ok: false, error: 'group_not_configured' };
+  const token = env.SCHOLARSHIP_TELEGRAM_BOT_TOKEN!;
+  try {
+    const expireSeconds = Math.max(60, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+    const link = await createSingleUseInviteLink(token, env.SCHOLARSHIP_TELEGRAM_CHANNEL, expireSeconds);
+    await tgSendMessage(
+      token,
+      chatId,
+      `You're in! Here is your one-time link to the private scholarships group — it works once, for you only, and expires when your access does:\n\n${link}`
+    );
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err }, 'scholarship-telegram: personal invite failed');
+    return { ok: false, error: String(err?.message ?? 'invite_failed') };
+  }
+}
+
+/** Remove a lapsed member from the group. Kicks (not a permanent ban). */
+export async function removeFromTelegramGroup(chatId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!configured() || !env.SCHOLARSHIP_TELEGRAM_CHANNEL) return { ok: false, error: 'group_not_configured' };
+  const token = env.SCHOLARSHIP_TELEGRAM_BOT_TOKEN!;
+  const userId = Number(chatId);
+  if (!Number.isFinite(userId)) return { ok: false, error: 'invalid_chat_id' };
+  try {
+    await kickChatMember(token, env.SCHOLARSHIP_TELEGRAM_CHANNEL, userId);
+    await unbanIfBanned(token, env.SCHOLARSHIP_TELEGRAM_CHANNEL, userId);
+    return { ok: true };
+  } catch (err: any) {
+    logger.error({ err }, 'scholarship-telegram: remove from group failed');
+    return { ok: false, error: String(err?.message ?? 'remove_failed') };
   }
 }

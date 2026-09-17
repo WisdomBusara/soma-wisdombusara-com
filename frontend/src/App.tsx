@@ -20,6 +20,7 @@ import { ScholarshipSearchPage } from './site/ScholarshipSearchPage';
 import { ScholarshipDetailPage } from './site/ScholarshipDetailPage';
 import { LandingPage } from './site/LandingPage';
 import { AccessProvider, UpgradePage, RestorePage } from './site/Paywall';
+import { CookiePolicyPage } from './site/CookiePolicyPage';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: '◈' },
@@ -140,6 +141,7 @@ export function App() {
           <Route path="/universities" element={<UniversityListPage />} />
           <Route path="/universities/:id" element={<UniversityDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/cookies" element={<CookiePolicyPage />} />
         </Route>
 
         <Route path="/*" element={<Shell />} />

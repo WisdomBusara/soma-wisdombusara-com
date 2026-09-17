@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom';
 import { AccessProvider, useAccess } from './Paywall';
+import { CookieConsentBanner } from './CookieConsent';
 import {
   publicFetch, DEGREE_LABELS, FUNDING_LABELS, STATUS_LABELS,
   label, formatDate, statusTone,
@@ -68,9 +69,13 @@ function SiteChrome() {
           <span className="sch-dot">·</span>
           <Link to="/restore">Restore access</Link>
           <span className="sch-dot">·</span>
+          <Link to="/cookies">Cookie Policy</Link>
+          <span className="sch-dot">·</span>
           <a href="mailto:support@wisdombusara.com">Contact</a>
         </p>
       </footer>
+
+      <CookieConsentBanner />
     </div>
   );
 }

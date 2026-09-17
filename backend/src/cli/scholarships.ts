@@ -238,8 +238,8 @@ async function cmdReprocessFailed(args: Args): Promise<void> {
 
 async function cmdSeedPlans(args: Args): Promise<void> {
   const defaults = [
-    { name: '3-Day Trial', durationMinutes: 3 * 1440, amountKobo: 5000, currency: 'KES', description: 'Try full access for 3 days', isTrial: true },
-    { name: '1 Month', durationMinutes: 30 * 1440, amountKobo: 50000, currency: 'KES', description: 'Full access for 30 days', isTrial: false }
+    { name: '3-Day Trial', durationMinutes: 3 * 1440, amountKobo: 5800, currency: 'KES', description: 'Try full access for 3 days (includes 16% VAT)', isTrial: true },
+    { name: '1 Month', durationMinutes: 30 * 1440, amountKobo: 58000, currency: 'KES', description: 'Full access for 30 days (includes 16% VAT)', isTrial: false }
   ];
   const force = Boolean(args.force);
   const results: Record<string, string> = {};

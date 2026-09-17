@@ -11,6 +11,8 @@ import { discoverForDueUniversities } from './discovery/scholarshipDiscovery';
 import { refreshStatuses } from './status';
 import { closeBrowser } from './fetcher';
 import { ensureScholarshipIndexes } from './indexes';
+import { dispatchDeliveries } from './delivery/dispatcher';
+import { ensureTelegramWebhook } from './delivery/telegram';
 
 /**
  * Scheduling (§27).
@@ -170,6 +172,14 @@ export async function runScholarshipCycle(
     logger.error({ err }, 'scholarship: status refresh stage failed');
   }
 
+  // Stage 6 — delivery (send new scholarships to subscribers + group)
+  try {
+    const d = await dispatchDeliveries({ dryRun: opts.dryRun });
+    (summary as any).delivery = d;
+  } catch (err) {
+    logger.error({ err }, 'scholarship: delivery stage failed');
+  }
+
   // Stage 5 — adaptive priorities
   if (!opts.dryRun) {
     try {
@@ -228,6 +238,7 @@ export class ScholarshipScheduler {
       )
     );
 
+    void ensureTelegramWebhook().catch(() => undefined);
     logger.info({ schedule: env.SCHOLARSHIP_CRAWL_INTERVAL }, 'scholarship: scheduler started');
   }
 

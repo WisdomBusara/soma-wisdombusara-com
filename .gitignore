@@ -20,3 +20,10 @@ backend/universities-world.json
 backend/node
 backend/wraith-backend@0.1.0
 *.log
+*.env.bak
+*.backup
+projo
+projo.pub
+*.pem
+*_rsa
+*_rsa.pub

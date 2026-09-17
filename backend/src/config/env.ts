@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { z } from 'zod';
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {
@@ -87,7 +88,20 @@ const envSchema = z.object({
   SCHOLARSHIP_FREE_VIEWS_PER_MONTH: z.coerce.number().int().min(0).max(1000).default(5),
   SCHOLARSHIP_SITE_URL: z.string().url().optional(),
   ADS_ENABLED: z.string().optional(),
-  ADS_NETWORK_CLIENT_ID: z.string().optional()
+  ADS_NETWORK_CLIENT_ID: z.string().optional(),
+  // ── Delivery: email (SMTP), WhatsApp (WAHA), Telegram ────────────────────
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  WAHA_URL: z.string().optional(),
+  WAHA_API_KEY: z.string().optional(),
+  WAHA_SESSION: z.string().optional(),
+  WAHA_GROUP_ID: z.string().optional(),
+  SCHOLARSHIP_TELEGRAM_BOT_TOKEN: z.string().optional(),
+  SCHOLARSHIP_TELEGRAM_BOT_USERNAME: z.string().optional(),
+  SCHOLARSHIP_TELEGRAM_CHANNEL: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

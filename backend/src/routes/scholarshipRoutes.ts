@@ -15,6 +15,7 @@ import {
   resolveAccess, consumeFreeView, requirePremium, accessSummary
 } from '../services/scholarship/paywall';
 import { scholarshipAccessRouter } from './scholarshipAccessRoutes';
+import { scholarshipDeliveryRouter } from './scholarshipDeliveryRoutes';
 
 /**
  * Public scholarship API (§29, §30).
@@ -191,6 +192,16 @@ function buildSort(sort?: string): Record<string, 1 | -1> {
 export function scholarshipPublicRouter() {
   const router = Router();
 
+  // Anti-abuse: even with the cookie meter, cap detail views per IP per day so
+  // clearing cookies / incognito cannot mint unlimited free reads.
+  const detailIpLimiter = rateLimit({
+    windowMs: 24 * 60 * 60 * 1000,
+    limit: 40,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'ip_rate_limited', message: 'Too many scholarship views from this network today. Please subscribe for unlimited access.', upgradeUrl: '/upgrade' }
+  });
+
   // credentials:true because the paywall cookie must travel with requests when
   // the site is served from a different origin than the API.
   router.use(cors({ origin: true, credentials: true, methods: ['GET', 'POST'] }));
@@ -200,6 +211,7 @@ export function scholarshipPublicRouter() {
 
   // Checkout, restore and ad delivery share this router's CORS and cookies.
   router.use(scholarshipAccessRouter());
+  router.use(scholarshipDeliveryRouter());
 
   // ── GET /api/scholarships ─────────────────────────────────────────────────
   router.get('/scholarships', async (req, res, next) => {
@@ -299,7 +311,7 @@ export function scholarshipPublicRouter() {
   });
 
   // ── GET /api/scholarships/:id ─────────────────────────────────────────────
-  router.get('/scholarships/:id', async (req, res, next) => {
+  router.get('/scholarships/:id', detailIpLimiter, async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
@@ -327,8 +339,11 @@ export function scholarshipPublicRouter() {
             degreeLevels: s.degreeLevels ?? [],
             funding: s.funding?.primaryType ?? 'UNKNOWN',
             deadline: s.deadline?.date ?? null,
+            deadlineKind: s.deadline?.kind ?? 'UNKNOWN',
             status: s.status
           },
+          // The teaser tells them what they get by subscribing.
+          delivery: 'Unlock full details, and get new scholarships delivered by email, Telegram or WhatsApp.',
           upgradeUrl: '/upgrade'
         });
       }

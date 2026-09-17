@@ -15,7 +15,8 @@
     "scholarships:verify": "tsx src/cli/scholarships.ts verify",
     "scholarships:status": "tsx src/cli/scholarships.ts status",
     "scholarships:run": "tsx src/cli/scholarships.ts run",
-    "scholarships:reprocess-failed": "tsx src/cli/scholarships.ts reprocess-failed"
+    "scholarships:reprocess-failed": "tsx src/cli/scholarships.ts reprocess-failed",
+    "scholarships:deliver": "tsx src/cli/deliver.ts"
   },
   "dependencies": {
     "argon2": "^0.41.1",
@@ -31,6 +32,7 @@
     "mongoose": "^8.14.2",
     "nanoid": "^5.0.7",
     "node-cron": "^4.5.0",
+    "nodemailer": "^9.1.0",
     "pino": "^9.2.0",
     "pino-http": "^10.4.0",
     "telegraf": "^4.16.3",
@@ -42,6 +44,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.11",
     "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.1",
     "mongodb-memory-server": "^10.4.3",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",

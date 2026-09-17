@@ -67,31 +67,44 @@ export function QuotaPill() {
 /** Shown in place of a detail page once the free allowance is spent. */
 export function PaywallGate({ preview }: { preview: any }) {
   return (
-    <div className="paywall">
-      <div className="paywall-preview">
-        <h1 className="sch-detail-title">{preview?.title ?? 'This scholarship'}</h1>
-        <div className="sch-detail-eyebrow">
-          {preview?.university ?? '—'}<span className="sch-dot">·</span>{preview?.country ?? ''}
+    <div className="paywall-container">
+      <div className="paywall-content">
+        <div className="paywall-header">
+          <div className="paywall-icon">🔒</div>
+          <h1>You've reached your free limit</h1>
+          <p className="paywall-subtitle">See this opportunity and hundreds more</p>
         </div>
-        <div className="paywall-fade" />
-      </div>
 
-      <div className="paywall-card">
-        <div className="paywall-badge">Free views used</div>
-        <h2>You&rsquo;ve read your free scholarships this month.</h2>
-        <p>
-          Unlock every listing, the eligibility matcher, and an ad-free page for less than
-          the cost of a matatu ride.
-        </p>
-        <ul className="paywall-list">
-          <li>Unlimited scholarship details</li>
-          <li>Match scoring against your own profile</li>
-          <li>Funding, eligibility and document requirements in full</li>
-          <li>No ads</li>
-        </ul>
-        <Link to="/upgrade" className="btn paywall-cta">See plans</Link>
-        <p className="paywall-alt">
-          Already paid? <Link to="/restore">Restore your access</Link>
+        <div className="paywall-opportunity">
+          <h3>{preview?.title ?? 'This scholarship'}</h3>
+          <div className="paywall-meta">
+            {preview?.university ?? '—'} · {preview?.country ?? ''}
+          </div>
+        </div>
+
+        <div className="paywall-benefits">
+          <div className="paywall-benefit-item">
+            <span className="check">✓</span>
+            <span>View all scholarship details</span>
+          </div>
+          <div className="paywall-benefit-item">
+            <span className="check">✓</span>
+            <span>Match scoring against your profile</span>
+          </div>
+          <div className="paywall-benefit-item">
+            <span className="check">✓</span>
+            <span>Complete eligibility & requirements</span>
+          </div>
+          <div className="paywall-benefit-item">
+            <span className="check">✓</span>
+            <span>Ad-free browsing</span>
+          </div>
+        </div>
+
+        <Link to="/upgrade" className="btn paywall-cta paywall-primary">Unlock full access</Link>
+
+        <p className="paywall-footer">
+          Already a member? <Link to="/restore">Restore your access</Link>
         </p>
       </div>
     </div>

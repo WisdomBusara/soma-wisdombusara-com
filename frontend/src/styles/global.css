@@ -663,33 +663,81 @@ textarea.input { resize: vertical; min-height: 80px; width: 100%; }
 .quota-pill.out:hover { text-decoration: none; }
 .quota-pill.premium { background: var(--accent-dim); color: var(--accent); }
 
-.paywall { max-width: 640px; margin: 0 auto; }
-.paywall-preview { position: relative; padding-bottom: 40px; margin-bottom: -20px; }
-.paywall-fade {
-  position: absolute; inset: auto 0 0 0; height: 90px;
-  background: linear-gradient(180deg, transparent, var(--bg));
+.paywall-container {
+  display: flex; align-items: center; justify-content: center; min-height: 100vh;
+  padding: 32px 20px; background: linear-gradient(135deg, var(--bg) 0%, var(--surface2) 100%);
 }
-.paywall-card {
-  width: 100%; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 18px; padding: 34px; text-align: center; position: relative;
-  box-shadow: 0 6px 30px rgba(26, 26, 24, 0.07); box-sizing: border-box;
+
+.paywall-content {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 48px 40px; max-width: 580px; width: 100%;
+  box-shadow: 0 20px 60px rgba(26, 26, 24, 0.15);
 }
-.paywall-badge {
-  display: inline-block; background: var(--gold-dim); color: var(--gold);
-  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.9px; padding: 5px 12px;
-  border-radius: 999px; margin-bottom: 18px;
+
+.paywall-header {
+  text-align: center; margin-bottom: 36px;
 }
-.paywall-card h2 { font-size: 25px; line-height: 1.25; letter-spacing: -0.5px; margin-bottom: 12px; }
-.paywall-card > p { color: var(--muted); line-height: 1.6; max-width: 420px; margin: 0 auto 22px; }
-.paywall-list { list-style: none; text-align: left; max-width: 340px; margin: 0 auto 26px; }
-.paywall-list li {
-  padding: 9px 0 9px 28px; position: relative;
-  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px;
+
+.paywall-icon {
+  font-size: 48px; margin-bottom: 18px; display: block;
 }
-.paywall-list li:before { content: '✓'; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
-.paywall-cta { padding: 13px 34px !important; font-size: 15px !important; }
-.paywall-alt { margin-top: 18px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; color: var(--muted); }
+
+.paywall-header h1 {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.6px;
+  margin-bottom: 8px; line-height: 1.2;
+}
+
+.paywall-subtitle {
+  font-size: 16px; color: var(--muted); line-height: 1.5;
+}
+
+.paywall-opportunity {
+  background: var(--surface2); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 16px 18px; margin-bottom: 28px;
+}
+
+.paywall-opportunity h3 {
+  font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;
+}
+
+.paywall-meta {
+  font-size: 13px; color: var(--muted);
+}
+
+.paywall-benefits {
+  display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;
+}
+
+.paywall-benefit-item {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 14px; line-height: 1.4;
+}
+
+.paywall-benefit-item .check {
+  color: var(--accent); font-weight: 700; flex-shrink: 0; font-size: 16px;
+}
+
+.paywall-cta {
+  width: 100%; padding: 14px 24px !important; font-size: 15px !important;
+  font-weight: 600; border-radius: 10px; margin-bottom: 16px;
+}
+
+.paywall-cta.paywall-primary {
+  background: var(--accent) !important; color: #000 !important;
+}
+
+.paywall-cta.paywall-primary:hover {
+  opacity: 0.9;
+}
+
+.paywall-footer {
+  text-align: center; font-size: 13px; color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.paywall-footer a {
+  color: var(--accent); font-weight: 600;
+}
 
 .premium-teaser {
   display: flex; align-items: center; gap: 16px;

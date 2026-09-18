@@ -20,6 +20,18 @@ import {
  * Hovering any extracted value reveals the exact sentence the crawler read.
  */
 
+function addTrackingParams(url: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('ref', 'soma');
+    u.searchParams.set('utm_source', 'soma-scholarships');
+    u.searchParams.set('utm_medium', 'aggregator');
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 function EvidenceValue({
   labelText, field
 }: {
@@ -304,7 +316,7 @@ export function ScholarshipDetailPage() {
           </div>
 
           {s.applicationUrl ? (
-            <a className="btn sch-apply" href={s.applicationUrl} target="_blank" rel="noopener noreferrer">
+            <a className="btn sch-apply" href={addTrackingParams(s.applicationUrl)} target="_blank" rel="noopener noreferrer">
               Apply on the official site →
             </a>
           ) : (

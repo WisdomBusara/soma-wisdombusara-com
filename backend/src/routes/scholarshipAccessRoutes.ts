@@ -66,6 +66,7 @@ export function scholarshipAccessRouter() {
 
   const payLimiter = rateLimit({ windowMs: 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false });
   const restoreLimiter = rateLimit({ windowMs: 300_000, limit: 6, standardHeaders: 'draft-7', legacyHeaders: false });
+  const resendLimiter = rateLimit({ windowMs: 900_000, limit: 3, standardHeaders: 'draft-7', legacyHeaders: false });
 
   // ── Entitlement ───────────────────────────────────────────────────────────
 
@@ -248,6 +249,60 @@ export function scholarshipAccessRouter() {
       setAccessCookie(res, issueAccessToken(String(grant._id), grant.endsAt), grant.endsAt);
       res.setHeader('Cache-Control', 'no-store');
       return res.json({ ok: true, endsAt: grant.endsAt, planName: grant.planName ?? null });
+    } catch (err) { return next(err); }
+  });
+
+  /**
+   * "Text me my code" — for the payer who is still on the success screen right
+   * after paying and either didn't save the code or never got the automatic
+   * WhatsApp text (e.g. WAHA was down at grant time). Only works for M-Pesa
+   * payers, since that is the only flow with a real phone number on file.
+   *
+   * The original code was only ever stored as a hash (same as a password), so
+   * there is nothing to look up and re-send verbatim — this mints a fresh code
+   * and invalidates the old one, exactly like a password reset.
+   */
+  router.post('/access/resend-code', resendLimiter, async (req, res, next) => {
+    try {
+      const { reference } = z.object({ reference: z.string().min(4).max(64) }).parse(req.body ?? {});
+
+      const payment = await PaymentModel.findOne({ reference, vertical: 'scholarships', status: 'paid' }).lean();
+      if (!payment) return res.status(404).json({ error: 'not_found', message: 'No paid order found for that reference.' });
+
+      const grant = await ScholarshipAccessModel.findOne({ paystackReference: reference });
+      if (!grant) return res.status(404).json({ error: 'not_found', message: 'No access grant found for that reference.' });
+
+      if (!grant.phone) {
+        return res.status(400).json({
+          error: 'no_phone',
+          message: 'No WhatsApp number is on file for this payment — email support@wisdombusara.com instead.'
+        });
+      }
+      if (!whatsappConfigured()) {
+        return res.status(503).json({
+          error: 'whatsapp_unavailable',
+          message: 'WhatsApp delivery is not available right now — email support@wisdombusara.com instead.'
+        });
+      }
+
+      const newCode = generateRestoreCode();
+      grant.restoreCodeHash = hashRestoreCode(newCode);
+      grant.restoreCodeSentAt = new Date();
+      await grant.save();
+
+      const sent = await sendWhatsAppText(
+        grant.phone,
+        `Your Wisdom Busara Scholarships restore code: ${newCode}\nKeep this — it is the only way to restore access on another device.`
+      );
+      if (!sent.ok) {
+        return res.status(503).json({
+          error: 'send_failed',
+          message: 'Could not send a WhatsApp message right now — email support@wisdombusara.com instead.'
+        });
+      }
+
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ ok: true });
     } catch (err) { return next(err); }
   });
 
@@ -451,15 +506,20 @@ async function provisionDeliveryOnGrant(opts: {
   }
 
   if (phone && whatsappConfigured()) {
+    // The restore code goes out here unconditionally — it must reach the payer
+    // whether or not the group-add succeeds, since M-Pesa payers rarely give a
+    // real email and this text is otherwise the only durable copy they get.
     const added = await addToGroup(phone).catch(() => ({ ok: false, error: 'add_failed' }));
-    if (!added.ok && whatsappGroupLink) {
-      const lines = [
-        `You're in! Full access to Wisdom Busara Scholarships is active.`,
-        `Join our WhatsApp group for new scholarship alerts: ${whatsappGroupLink}`,
-        opts.telegramConnectCode ? `For the private Telegram group, message ${env.SCHOLARSHIP_TELEGRAM_BOT_USERNAME ?? 'our bot'} with: /connect ${opts.telegramConnectCode}` : null,
-        `Restore code (keep this): ${opts.restoreCode}`
-      ].filter(Boolean);
-      void sendWhatsAppText(phone, lines.join('\n')).catch(() => undefined);
-    }
+    const lines = [
+      `You're in! Full access to Wisdom Busara Scholarships is active.`,
+      added.ok
+        ? `You've been added to our WhatsApp group for new scholarship alerts.`
+        : whatsappGroupLink
+          ? `Join our WhatsApp group for new scholarship alerts: ${whatsappGroupLink}`
+          : null,
+      opts.telegramConnectCode ? `For the private Telegram group, message ${env.SCHOLARSHIP_TELEGRAM_BOT_USERNAME ?? 'our bot'} with: /connect ${opts.telegramConnectCode}` : null,
+      `Restore code (keep this): ${opts.restoreCode}`
+    ].filter(Boolean);
+    void sendWhatsAppText(phone, lines.join('\n')).catch(() => undefined);
   }
 }

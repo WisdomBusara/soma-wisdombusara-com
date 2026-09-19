@@ -246,6 +246,11 @@ export function UpgradePage() {
   const [state, setState] = React.useState<'idle' | 'paying' | 'waiting' | 'done'>('idle');
   const [error, setError] = React.useState<string | null>(null);
   const [restoreCode, setRestoreCode] = React.useState<string | null>(null);
+  const [reference, setReference] = React.useState<string | null>(null);
+  const [paidByMpesa, setPaidByMpesa] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [resendState, setResendState] = React.useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resendError, setResendError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     publicFetch<{ plans: PlanOption[]; freeViewsPerMonth: number }>('/access/plans')
@@ -298,11 +303,35 @@ export function UpgradePage() {
         window.location.href = r.authorizationUrl;
         return;
       }
+      setReference(r.reference);
+      setPaidByMpesa(method === 'mpesa');
       setState('waiting');
       void poll(r.reference);
     } catch (e: any) {
       setError(String(e?.message ?? 'Checkout failed. Please try again.'));
       setState('idle');
+    }
+  };
+
+  const copyCode = async () => {
+    if (!restoreCode) return;
+    try {
+      await navigator.clipboard.writeText(restoreCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard permission denied — the code is already on screen */ }
+  };
+
+  const resendCode = async () => {
+    if (!reference) return;
+    setResendState('sending');
+    setResendError(null);
+    try {
+      await publicFetch('/access/resend-code', { method: 'POST', body: JSON.stringify({ reference }) });
+      setResendState('sent');
+    } catch (e: any) {
+      setResendState('error');
+      setResendError(String(e?.message ?? 'Could not resend right now.'));
     }
   };
 
@@ -315,11 +344,34 @@ export function UpgradePage() {
         {restoreCode && (
           <div className="restore-box">
             <div className="restore-label">Your restore code</div>
-            <div className="restore-code">{restoreCode}</div>
+            <div className="restore-code-row">
+              <div className="restore-code">{restoreCode}</div>
+              <button type="button" className="btn-copy" onClick={copyCode}>
+                {copied ? 'Copied ✓' : 'Copy'}
+              </button>
+            </div>
             <p className="muted">
               Save this. It restores your access on another phone or laptop — it is the only
               way back in, and we will not show it again.
             </p>
+            {paidByMpesa && (
+              <div className="restore-resend">
+                <p className="muted">We&rsquo;ve also sent this to your WhatsApp.</p>
+                {resendState === 'sent' ? (
+                  <p className="muted">Sent — check WhatsApp.</p>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={resendCode}
+                    disabled={resendState === 'sending'}
+                  >
+                    {resendState === 'sending' ? 'Sending…' : "Didn't get it? Resend to WhatsApp"}
+                  </button>
+                )}
+                {resendState === 'error' && <p className="error">{resendError}</p>}
+              </div>
+            )}
           </div>
         )}
         <button className="btn" onClick={() => navigate('/scholarships')}>Browse scholarships</button>

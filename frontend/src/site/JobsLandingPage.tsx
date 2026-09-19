@@ -101,12 +101,12 @@ export function JobsLandingPage() {
         <div className="feature-label">Jobs</div>
         <h2 className="feature-title">We read the career pages so you don't have to.</h2>
         <p className="feature-body">
-          Most openings at banks, insurers and telcos are posted quietly on the company's own
-          careers page and never make it to the big job boards. Our crawler visits those pages
-          every night, picks out what's genuinely new, and packages it into one message.
+          Most openings are posted quietly on the employer's own careers page and never make it
+          to the big job boards. Our crawler visits those pages every night, picks out what's
+          genuinely new, and packages it into one message — across sectors, not just a handful.
         </p>
         <ul className="feature-list">
-          <li>Focused on banking, insurance and telecom employers today, with more sectors on the way</li>
+          <li>Employers across every sector we track — banking, insurance, telecom and beyond</li>
           <li>Duplicate postings across sites are merged into a single line</li>
           <li>One short digest a day, not a stream of one-off alerts</li>
         </ul>

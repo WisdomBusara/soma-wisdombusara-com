@@ -1,9 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Request, Response } from 'express';
+import { env } from '../../config/env';
 import {
   issueAccessToken, generateRestoreCode, hashRestoreCode,
   consumeFreeView, accessSummary, ACCESS_COOKIE, QUOTA_COOKIE
 } from './paywall';
+
+// consumeFreeView checks the real env.SCHOLARSHIP_FREE_VIEWS_PER_MONTH, not
+// whatever `limit` a test passes into req.access — so these tests read the
+// same value, rather than assuming a value that only matches the default.
+const FREE_VIEWS = env.SCHOLARSHIP_FREE_VIEWS_PER_MONTH;
 
 /**
  * Paywall unit tests.
@@ -97,14 +103,14 @@ describe('free-view metering', () => {
   it('blocks once the allowance is exhausted', () => {
     let cookie = '';
     let used = 0;
-    for (let i = 0; i < 5; i += 1) {
-      const req = mockReq(cookie ? { [QUOTA_COOKIE]: cookie } : {}, { tier: 'free', used, limit: 5, remaining: 5 - used });
+    for (let i = 0; i < FREE_VIEWS; i += 1) {
+      const req = mockReq(cookie ? { [QUOTA_COOKIE]: cookie } : {}, { tier: 'free', used, limit: FREE_VIEWS, remaining: FREE_VIEWS - used });
       const { res } = mockRes();
       expect(consumeFreeView(req, res, `sch${i}`)).toBe(true);
       cookie = (res.cookie as any).mock.calls[0][1];
       used = (req.access as any).used;
     }
-    const req = mockReq({ [QUOTA_COOKIE]: cookie }, { tier: 'free', used, limit: 5, remaining: 0 });
+    const req = mockReq({ [QUOTA_COOKIE]: cookie }, { tier: 'free', used, limit: FREE_VIEWS, remaining: 0 });
     const { res } = mockRes();
     expect(consumeFreeView(req, res, 'sch-blocked')).toBe(false);
   });

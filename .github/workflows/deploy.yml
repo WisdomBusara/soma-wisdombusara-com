@@ -1,0 +1,24 @@
+name: Deploy
+
+# Pushes to main trigger ops/deploy.sh on the VPS via a restricted `deploy`
+# user (sudo scoped to exactly that one script — see ops/deploy.sh's own
+# bottom comment). The script itself pulls, runs tests, builds, and only
+# swaps/restarts if everything up to that point succeeded, so a broken
+# commit fails loudly here rather than taking down the live site.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: sudo /srv/wisdombusara/ops/deploy.sh

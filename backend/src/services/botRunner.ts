@@ -336,7 +336,7 @@ export class BotRunner {
       reference,
       currency: plan.currency,
       callbackUrl,
-      metadata: { botId: opts.botId, planId: opts.planId, telegramUserId: opts.userId }
+      metadata: { project: 'wraith-api', botId: opts.botId, planId: opts.planId, telegramUserId: opts.userId }
     });
 
     await PaymentModel.create({
@@ -372,7 +372,7 @@ export class BotRunner {
         email,
         phone: opts.phone,
         reference,
-        metadata: { botId: opts.botId, planId: opts.planId, telegramUserId: opts.userId }
+        metadata: { project: 'wraith-api', botId: opts.botId, planId: opts.planId, telegramUserId: opts.userId }
       });
     } catch (err: any) {
       logger.error({ err, phone: opts.phone }, 'M-Pesa charge failed');

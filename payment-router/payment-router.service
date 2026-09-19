@@ -1,0 +1,43 @@
+# /etc/systemd/system/payment-router.service
+#
+# Single shared Paystack webhook entry point for every project on this live
+# account. Verifies the signature once, reads metadata.project from the
+# event, and forwards the untouched raw request to that project's own
+# webhook handler (see /srv/payment-router/routes.json).
+#
+# Install:
+#   sudo cp payment-router.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now payment-router
+
+[Unit]
+Description=Payment Router (shared Paystack webhook dispatcher)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wisdombusara
+Group=wisdombusara
+WorkingDirectory=/srv/payment-router
+EnvironmentFile=/srv/payment-router/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/payment-router
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=payment-router
+
+[Install]
+WantedBy=multi-user.target

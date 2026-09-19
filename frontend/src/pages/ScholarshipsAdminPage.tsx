@@ -20,11 +20,24 @@ interface Metrics {
   config: Record<string, unknown>;
 }
 
+interface BotStatus {
+  configured: boolean;
+  botUsername?: string;
+  botName?: string;
+  channelId?: string;
+  webhookUrl?: string;
+  webhookOk?: boolean;
+  pendingUpdateCount?: number;
+  lastWebhookError?: string;
+  error?: string;
+}
+
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export function ScholarshipsAdminPage() {
   const [tab, setTab] = React.useState<Tab>('overview');
   const [metrics, setMetrics] = React.useState<Metrics | null>(null);
+  const [botStatus, setBotStatus] = React.useState<BotStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -39,7 +52,15 @@ export function ScholarshipsAdminPage() {
     }
   }, []);
 
-  React.useEffect(() => { void loadMetrics(); }, [loadMetrics]);
+  const loadBotStatus = React.useCallback(async () => {
+    try {
+      setBotStatus(await apiFetch<BotStatus>('/admin/scholarship/bot-status'));
+    } catch {
+      setBotStatus({ configured: false, error: 'Could not reach the status endpoint' });
+    }
+  }, []);
+
+  React.useEffect(() => { void loadMetrics(); void loadBotStatus(); }, [loadMetrics, loadBotStatus]);
 
   const action = async (name: string, path: string, body?: unknown) => {
     setBusy(name);
@@ -131,6 +152,47 @@ export function ScholarshipsAdminPage() {
                 )}
               </div>
             </>
+          )}
+
+          {botStatus && (
+            <div className="card">
+              <div className="card-title">Telegram bot</div>
+              {!botStatus.configured ? (
+                <p className="muted">
+                  Not configured. Set <code>SCHOLARSHIP_TELEGRAM_BOT_TOKEN</code> in the backend&rsquo;s
+                  .env and restart to enable Telegram delivery and group membership.
+                </p>
+              ) : botStatus.error ? (
+                <p className="error" style={{ margin: 0 }}>{botStatus.error}</p>
+              ) : (
+                <>
+                  <div className="row" style={{ marginBottom: 10 }}>
+                    <span className="badge green">@{botStatus.botUsername}</span>
+                    {botStatus.botName && <span className="badge gray">{botStatus.botName}</span>}
+                    <span className={`badge ${botStatus.webhookOk ? 'green' : 'yellow'}`}>
+                      Webhook {botStatus.webhookOk ? 'registered' : 'not set'}
+                    </span>
+                    {typeof botStatus.pendingUpdateCount === 'number' && (
+                      <span className={`badge ${botStatus.pendingUpdateCount > 0 ? 'yellow' : 'gray'}`}>
+                        {botStatus.pendingUpdateCount} pending update{botStatus.pendingUpdateCount === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
+                  {botStatus.webhookUrl && (
+                    <div className="muted mono" style={{ fontSize: 12, marginBottom: 6 }}>{botStatus.webhookUrl}</div>
+                  )}
+                  {botStatus.channelId && (
+                    <div className="muted" style={{ fontSize: 12 }}>Channel: <span className="mono">{botStatus.channelId}</span></div>
+                  )}
+                  {botStatus.lastWebhookError && (
+                    <p className="error" style={{ marginTop: 10 }}>Last webhook error: {botStatus.lastWebhookError}</p>
+                  )}
+                  <button className="btn secondary" style={{ marginTop: 12 }} onClick={() => void loadBotStatus()}>
+                    Refresh
+                  </button>
+                </>
+              )}
+            </div>
           )}
 
           <div className="card">

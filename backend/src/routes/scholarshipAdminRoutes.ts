@@ -19,6 +19,7 @@ import { discoverScholarshipUrls } from '../services/scholarship/discovery/schol
 import { refreshStatuses } from '../services/scholarship/status';
 import { domainStats } from '../services/scholarship/politeness';
 import { AdSlotModel, AD_PLACEMENTS, ScholarshipAccessModel } from '../models/scholarship/access';
+import { getScholarshipBotStatus } from '../services/scholarship/delivery/telegram';
 
 /**
  * Scholarship admin surface (§32, §33, §34, §61).
@@ -47,6 +48,12 @@ export function scholarshipAdminRouter() {
   router.get('/domains', (_req, res) => {
     // Live politeness state — which domains are in backoff right now
     return res.json({ domains: domainStats() });
+  });
+
+  router.get('/bot-status', async (_req, res, next) => {
+    try {
+      return res.json(await getScholarshipBotStatus());
+    } catch (err) { return next(err); }
   });
 
   // ── Scholarships ──────────────────────────────────────────────────────────

@@ -113,6 +113,49 @@ export async function ensureTelegramWebhook(): Promise<void> {
   }
 }
 
+export interface ScholarshipBotStatus {
+  configured: boolean;
+  botUsername?: string;
+  botName?: string;
+  channelId?: string;
+  webhookUrl?: string;
+  webhookOk?: boolean;
+  pendingUpdateCount?: number;
+  lastWebhookError?: string;
+  error?: string;
+}
+
+/**
+ * Live status for the admin panel — confirms the bot is actually reachable
+ * (not just that a token is set) and that its webhook is registered where we
+ * expect, rather than admins having to SSH in and check env vars + curl
+ * getWebhookInfo by hand.
+ */
+export async function getScholarshipBotStatus(): Promise<ScholarshipBotStatus> {
+  if (!configured()) return { configured: false };
+  try {
+    const [meRes, hookRes] = await Promise.all([
+      tgFetch('getMe', {}),
+      tgFetch('getWebhookInfo', {})
+    ]);
+    const me = await meRes.json();
+    const hook = await hookRes.json();
+    if (!me?.ok) return { configured: true, error: me?.description ?? 'getMe failed' };
+    return {
+      configured: true,
+      botUsername: me.result?.username,
+      botName: me.result?.first_name,
+      channelId: env.SCHOLARSHIP_TELEGRAM_CHANNEL,
+      webhookUrl: hook?.result?.url || undefined,
+      webhookOk: Boolean(hook?.result?.url),
+      pendingUpdateCount: hook?.result?.pending_update_count,
+      lastWebhookError: hook?.result?.last_error_message || undefined
+    };
+  } catch (err: any) {
+    return { configured: true, error: String(err?.message ?? 'status check failed') };
+  }
+}
+
 /** A plain text message — used for command replies and enforcement notices. */
 export async function sendTelegramText(chatId: string, text: string): Promise<{ ok: boolean; error?: string }> {
   if (!configured()) return { ok: false, error: 'telegram_not_configured' };

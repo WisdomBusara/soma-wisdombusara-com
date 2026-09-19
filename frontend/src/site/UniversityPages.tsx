@@ -46,6 +46,9 @@ function SiteChrome() {
           <NavLink to="/universities" className={({ isActive }) => (isActive ? 'active' : '')}>
             Universities
           </NavLink>
+          <NavLink to="/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Jobs &amp; Tenders
+          </NavLink>
           <NavLink to="/about" className={({ isActive }) => (isActive ? 'active' : '')}>
             How this works
           </NavLink>

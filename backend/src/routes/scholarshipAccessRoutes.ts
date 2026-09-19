@@ -156,7 +156,7 @@ export function scholarshipAccessRouter() {
           email,
           phone: phone!,
           reference: ref,
-          metadata: { vertical: 'scholarships', planId: String(plan._id), phone }
+          metadata: { project: 'wraith-api', vertical: 'scholarships', planId: String(plan._id), phone }
         });
         return res.json({
           method: 'mpesa',
@@ -172,7 +172,7 @@ export function scholarshipAccessRouter() {
         reference: ref,
         currency: plan.currency,
         callbackUrl: `${env.PAYSTACK_CALLBACK_BASE_URL}/upgrade/complete?ref=${ref}`,
-        metadata: { vertical: 'scholarships', planId: String(plan._id) }
+        metadata: { project: 'wraith-api', vertical: 'scholarships', planId: String(plan._id) }
       });
       return res.json({ method: 'card', reference: ref, authorizationUrl: init.authorizationUrl });
     } catch (err: any) {

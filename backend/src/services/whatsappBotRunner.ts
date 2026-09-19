@@ -430,7 +430,7 @@ export class WhatsAppBotRunner {
       reference,
       currency: plan.currency,
       callbackUrl,
-      metadata: { platform: 'whatsapp', waBotId, planId, whatsappPhone: phone }
+      metadata: { project: 'wraith-api', platform: 'whatsapp', waBotId, planId, whatsappPhone: phone }
     });
 
     await PaymentModel.create({
@@ -470,7 +470,7 @@ export class WhatsAppBotRunner {
         email,
         phone: `+${mpesaPhone}`,
         reference,
-        metadata: { platform: 'whatsapp', waBotId, planId, whatsappPhone: phone }
+        metadata: { project: 'wraith-api', platform: 'whatsapp', waBotId, planId, whatsappPhone: phone }
       });
     } catch (err: any) {
       logger.error({ err, phone: mpesaPhone }, 'WA M-Pesa charge failed');

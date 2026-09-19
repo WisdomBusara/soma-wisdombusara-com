@@ -15,7 +15,7 @@
 #
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/srv/wraith}"
+APP_DIR="${APP_DIR:-/srv/wisdombusara}"
 WEB_ROOT="${WEB_ROOT:-/var/www/scholarships}"
 SERVICE="${SERVICE:-wraith-api}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
@@ -87,7 +87,7 @@ systemctl restart "$SERVICE"
 # Wait for health before declaring success — a service that restarts into a
 # crash loop should fail the deploy loudly, not silently.
 for i in $(seq 1 20); do
-  if curl -fsS --max-time 2 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+  if curl -fsS --max-time 2 http://127.0.0.1:8090/health >/dev/null 2>&1; then
     log "API healthy after ${i}s"
     break
   fi
@@ -118,16 +118,16 @@ log "Deployed $NEW_SHA"
 #       host: ${{ secrets.VPS_HOST }}
 #       username: deploy
 #       key: ${{ secrets.VPS_SSH_KEY }}
-#       script: sudo /srv/wraith/ops/deploy.sh
+#       script: sudo /srv/wisdombusara/ops/deploy.sh
 #
 # Option B — git post-receive hook on the VPS itself:
 #
-#   # /srv/wraith.git/hooks/post-receive
+#   # /srv/wisdombusara.git/hooks/post-receive
 #   #!/usr/bin/env bash
 #   while read _old _new ref; do
-#     [[ "$ref" == "refs/heads/main" ]] && sudo /srv/wraith/ops/deploy.sh
+#     [[ "$ref" == "refs/heads/main" ]] && sudo /srv/wisdombusara/ops/deploy.sh
 #   done
 #
 # Grant the deploy user exactly these, and nothing more:
-#   deploy ALL=(root) NOPASSWD: /srv/wraith/ops/deploy.sh
+#   deploy ALL=(root) NOPASSWD: /srv/wisdombusara/ops/deploy.sh
 # ─────────────────────────────────────────────────────────────────────────────

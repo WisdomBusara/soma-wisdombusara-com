@@ -162,13 +162,13 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
     description: z.string().max(200).optional(),
     isActive: z.boolean().optional().default(true),
     isTrial: z.boolean().optional().default(false),
-    vertical: z.enum(['jobs', 'tenders']).optional()
+    vertical: z.enum(['scholarships', 'jobs', 'tenders']).optional()
   });
 
   router.get('/plans', async (_req, res, next) => {
     try {
       const plans = await PlanModel.find({}).sort({ createdAt: -1 }).lean();
-      return res.json(plans.map((p) => ({ id: String(p._id), name: p.name, durationMinutes: p.durationMinutes, amountKobo: p.amountKobo, currency: p.currency, videoUrl: p.videoUrl, description: p.description, isActive: p.isActive, isTrial: p.isTrial, createdAt: p.createdAt, updatedAt: p.updatedAt })));
+      return res.json(plans.map((p) => ({ id: String(p._id), name: p.name, durationMinutes: p.durationMinutes, amountKobo: p.amountKobo, currency: p.currency, videoUrl: p.videoUrl, description: p.description, isActive: p.isActive, isTrial: p.isTrial, vertical: p.vertical ?? 'jobs', createdAt: p.createdAt, updatedAt: p.updatedAt })));
     } catch (err) { return next(err); }
   });
 
@@ -176,7 +176,7 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
     try {
       const body = planCreateSchema.parse(req.body);
       const plan = await PlanModel.create(body);
-      return res.status(201).json({ id: String(plan._id), name: plan.name, durationMinutes: plan.durationMinutes, amountKobo: plan.amountKobo, currency: plan.currency, videoUrl: plan.videoUrl, description: plan.description, isActive: plan.isActive, isTrial: plan.isTrial });
+      return res.status(201).json({ id: String(plan._id), name: plan.name, durationMinutes: plan.durationMinutes, amountKobo: plan.amountKobo, currency: plan.currency, videoUrl: plan.videoUrl, description: plan.description, isActive: plan.isActive, isTrial: plan.isTrial, vertical: plan.vertical ?? 'jobs' });
     } catch (err) { return next(err); }
   });
 
@@ -187,7 +187,7 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
       const patch = planCreateSchema.partial().parse(req.body);
       const plan = await PlanModel.findByIdAndUpdate(id, patch, { new: true }).lean();
       if (!plan) return res.status(404).json({ error: 'Not found' });
-      return res.json({ id: String(plan._id), name: plan.name, durationMinutes: plan.durationMinutes, amountKobo: plan.amountKobo, currency: plan.currency, videoUrl: plan.videoUrl, description: plan.description, isActive: plan.isActive, isTrial: plan.isTrial, createdAt: plan.createdAt, updatedAt: plan.updatedAt });
+      return res.json({ id: String(plan._id), name: plan.name, durationMinutes: plan.durationMinutes, amountKobo: plan.amountKobo, currency: plan.currency, videoUrl: plan.videoUrl, description: plan.description, isActive: plan.isActive, isTrial: plan.isTrial, vertical: plan.vertical ?? 'jobs', createdAt: plan.createdAt, updatedAt: plan.updatedAt });
     } catch (err) { return next(err); }
   });
 

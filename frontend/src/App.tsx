@@ -19,6 +19,7 @@ import { SiteLayout, UniversityListPage, UniversityDetailPage, AboutPage } from 
 import { ScholarshipSearchPage } from './site/ScholarshipSearchPage';
 import { ScholarshipDetailPage } from './site/ScholarshipDetailPage';
 import { LandingPage } from './site/LandingPage';
+import { JobsLandingPage } from './site/JobsLandingPage';
 import { AccessProvider, UpgradePage, RestorePage } from './site/Paywall';
 import { CookiePolicyPage } from './site/CookiePolicyPage';
 
@@ -133,6 +134,7 @@ export function App() {
             redirects to /login. These routes must resolve without a session. */}
         <Route element={<SiteLayout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/jobs" element={<JobsLandingPage />} />
           <Route path="/upgrade" element={<UpgradePage />} />
           <Route path="/upgrade/complete" element={<UpgradePage />} />
           <Route path="/restore" element={<RestorePage />} />

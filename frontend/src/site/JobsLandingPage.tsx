@@ -56,22 +56,22 @@ export function JobsLandingPage() {
   return (
     <div className="landing">
       <section className="hero">
-        <div className="hero-eyebrow">A Wisdom Busara product</div>
+        <div className="hero-eyebrow">From the team behind Wisdom Busara Scholarships</div>
         <h1 className="hero-title">
-          The best jobs <em>never reach the job boards.</em>
+          Stop refreshing job sites. <em>Let the jobs come to you.</em>
         </h1>
         <p className="hero-sub">
-          We watch company career pages and government tender portals every night, and deliver
-          what's new straight to WhatsApp before the listing sites even notice it. No app, no
-          search — just message us and the daily digest starts landing at dawn.
+          Every night, we go through employer career pages and government tender portals across
+          Kenya and pull out what's new. By the time you wake up, it's already sitting in your
+          WhatsApp — no account to create, no app to install, nothing to search through.
         </p>
         <div className="hero-actions">
-          <WhatsAppCta className="btn hero-cta">Message us on WhatsApp →</WhatsAppCta>
-          <a href="#how" className="hero-link">How it works →</a>
+          <WhatsAppCta className="btn hero-cta">Start on WhatsApp →</WhatsAppCta>
+          <a href="#how" className="hero-link">See how it works →</a>
         </div>
         {trial && (
           <div className="hero-note">
-            Try it for {trial.currency} {trial.amount.toLocaleString()} — {durationLabel(trial.durationMinutes)} full access.
+            First {durationLabel(trial.durationMinutes)} on us for {trial.currency} {trial.amount.toLocaleString()} — see a real digest before you commit.
           </div>
         )}
       </section>
@@ -80,59 +80,59 @@ export function JobsLandingPage() {
         <section className="stat-band">
           <div>
             <strong>{overview.jobs.sourceCount + overview.tenders.sourceCount}</strong>
-            <span>sources watched nightly</span>
+            <span>employer &amp; government sites monitored</span>
           </div>
           <div>
             <strong>{overview.jobs.itemCount.toLocaleString()}</strong>
-            <span>jobs tracked</span>
+            <span>job openings catalogued</span>
           </div>
           <div>
             <strong>{overview.tenders.itemCount.toLocaleString()}</strong>
-            <span>tenders tracked</span>
+            <span>tenders catalogued</span>
           </div>
           <div>
-            <strong>07:00</strong>
-            <span>daily delivery, EAT</span>
+            <strong>Daily</strong>
+            <span>WhatsApp digest, every morning</span>
           </div>
         </section>
       )}
 
       <section className="feature" id="how">
-        <div className="feature-label">01 · Jobs feed</div>
-        <h2 className="feature-title">Straight from the careers page, not a job board.</h2>
+        <div className="feature-label">Jobs</div>
+        <h2 className="feature-title">We read the career pages so you don't have to.</h2>
         <p className="feature-body">
-          Every night we check the career pages of banks, insurers and telcos directly — the
-          postings that never make it to the big listing sites because nobody's paying to
-          promote them there. New openings land in your WhatsApp the next morning at 07:00 EAT.
+          Most openings at banks, insurers and telcos are posted quietly on the company's own
+          careers page and never make it to the big job boards. Our crawler visits those pages
+          every night, picks out what's genuinely new, and packages it into one message.
         </p>
         <ul className="feature-list">
-          <li>Banking, insurance and telecom sources tracked today, more industries coming</li>
-          <li>Deduplicated — the same posting on two pages is one message, not two</li>
-          <li>Delivered as a digest, not a flood — read it in the time it takes to make tea</li>
+          <li>Focused on banking, insurance and telecom employers today, with more sectors on the way</li>
+          <li>Duplicate postings across sites are merged into a single line</li>
+          <li>One short digest a day, not a stream of one-off alerts</li>
         </ul>
       </section>
 
       <section className="feature alt">
-        <div className="feature-label">02 · Tenders feed</div>
-        <h2 className="feature-title">Government and corporate tenders, tracked separately.</h2>
+        <div className="feature-label">Tenders</div>
+        <h2 className="feature-title">Public and corporate tenders, watched on their own clock.</h2>
         <p className="feature-body">
-          Tenders move on their own schedule and close on deadlines that don't forgive a missed
-          check — so they get their own digest, sent at 07:20 EAT, with the closing date and a
-          short scope description pulled straight from the notice.
+          Tenders live and die by their closing dates, so they get their own separate digest.
+          Each entry carries the closing date and a short line on the scope, taken straight from
+          the original notice, so you can tell at a glance whether it's worth a closer look.
         </p>
         <ul className="feature-list">
-          <li>Closing dates included, so nothing slips past you unnoticed</li>
-          <li>Independent from the jobs feed — subscribe to either, or both</li>
+          <li>Closing dates called out clearly, so nothing quietly expires on you</li>
+          <li>A separate subscription from the jobs feed — take one, or both</li>
         </ul>
       </section>
 
       <section className="feature" id="pricing">
-        <div className="feature-label">03 · Access</div>
-        <h2 className="feature-title">Jobs and tenders, priced separately.</h2>
+        <div className="feature-label">Pricing</div>
+        <h2 className="feature-title">Two feeds. Subscribe to what you actually need.</h2>
         <p className="feature-body">
-          Each feed is its own subscription — take the one you need, or both. Message us on
-          WhatsApp to see current plans and pay by M-Pesa or card; access starts the moment
-          payment lands.
+          Jobs and tenders are billed separately, so you're never paying for a feed you don't
+          use. Message us on WhatsApp to pick a plan — payment is by M-Pesa or card, handled
+          right there in the chat, and access opens up the moment it clears.
         </p>
         <div className="honesty-grid">
           {jobPlans.map((p) => (
@@ -147,14 +147,14 @@ export function JobsLandingPage() {
           ))}
         </div>
         <div className="pricing-actions" style={{ marginTop: 20 }}>
-          <WhatsAppCta className="btn">See plans on WhatsApp</WhatsAppCta>
+          <WhatsAppCta className="btn">View plans on WhatsApp</WhatsAppCta>
         </div>
-        <p className="pricing-note">Pay with M-Pesa or card, entirely inside the chat.</p>
+        <p className="pricing-note">M-Pesa or card — the whole transaction happens inside the chat.</p>
       </section>
 
       <section className="closing">
-        <h2>New listings land while you sleep.<br />Go find out what you missed.</h2>
-        <WhatsAppCta className="btn hero-cta">Message us on WhatsApp →</WhatsAppCta>
+        <h2>Someone else is already reading the boards for you.<br />Might as well make it official.</h2>
+        <WhatsAppCta className="btn hero-cta">Start on WhatsApp →</WhatsAppCta>
       </section>
     </div>
   );

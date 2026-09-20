@@ -43,11 +43,23 @@ export function whatsappInboundRouter(runner: WhatsAppBotRunner) {
     try {
       const { botId, secret } = req.params;
       const bot = await WhatsAppBotModel.findById(botId).lean();
-      if (!bot || bot.webhookSecret !== secret) return res.status(401).end();
+      if (!bot || bot.webhookSecret !== secret) {
+        logger.warn({ botId, found: !!bot }, 'WA inbound: rejected (bad botId or secret)');
+        return res.status(401).end();
+      }
+
+      logger.info(
+        { botId, event: req.body?.event, from: req.body?.payload?.from, fromMe: req.body?.payload?.fromMe, bodyPreview: String(req.body?.payload?.body ?? '').slice(0, 40) },
+        'WA inbound: webhook received'
+      );
 
       const msg = extractMessage(req.body);
-      if (!msg) return res.status(200).json({ ok: true });
+      if (!msg) {
+        logger.info({ botId, event: req.body?.event }, 'WA inbound: message filtered/skipped');
+        return res.status(200).json({ ok: true });
+      }
 
+      logger.info({ botId, from: msg.from, text: msg.text }, 'WA inbound: dispatching to bot runner');
       runner.handleMessage(botId, msg.from, msg.text).catch((err) =>
         logger.error({ err, botId, from: msg.from }, 'WA inbound handler failed')
       );

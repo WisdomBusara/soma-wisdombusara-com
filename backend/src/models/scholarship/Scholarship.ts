@@ -113,7 +113,14 @@ const scholarshipSchema = new Schema(
     sourceCount: { type: Number, default: 1 },
     // Whether any surviving source is an official institution/government page
     hasOfficialSource: { type: Boolean, default: false, index: true },
-    extractionMethod: { type: String, enum: ['RULES', 'AI', 'HYBRID', 'MANUAL'], default: 'RULES' }
+    extractionMethod: { type: String, enum: ['RULES', 'AI', 'HYBRID', 'MANUAL'], default: 'RULES' },
+
+    // Set once this scholarship has been posted to the WhatsApp group /
+    // Telegram channel — tracks "ever broadcast", not "recently created", so a
+    // record approved days after discovery still reaches the group exactly
+    // once instead of missing its delivery window forever (see dispatcher.ts).
+    groupBroadcastAt: { type: Date, default: null, index: true },
+    telegramBroadcastAt: { type: Date, default: null, index: true }
   },
   { timestamps: true }
 );
@@ -128,6 +135,8 @@ scholarshipSchema.index({ 'eligibility.countries': 1, status: 1 });
 scholarshipSchema.index({ 'eligibility.scope': 1, status: 1 });
 scholarshipSchema.index({ 'deadline.date': 1, status: 1 });
 scholarshipSchema.index({ reviewStatus: 1, confidence: 1 });
+scholarshipSchema.index({ status: 1, groupBroadcastAt: 1 });
+scholarshipSchema.index({ status: 1, telegramBroadcastAt: 1 });
 scholarshipSchema.index({ sourceUrl: 1 });
 scholarshipSchema.index({ title: 'text', description: 'text', fieldsOfStudy: 'text' });
 

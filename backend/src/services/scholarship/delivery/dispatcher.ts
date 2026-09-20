@@ -50,23 +50,27 @@ export interface DispatchSummary {
   whatsappSent: number;
   telegramSent: number;
   groupBroadcast: boolean;
+  telegramBroadcast: boolean;
   failures: number;
 }
 
 /**
- * Deliver recent scholarships to all active subscribers.
+ * Deliver eligible scholarships to all active subscribers, plus the group/
+ * channel broadcast.
  *
- * @param sinceMinutes only consider scholarships created/updated in this window
- *                     (default 1500 ≈ just over a day, matching nightly cadence)
+ * Eligibility is "never delivered on this channel before", not "created
+ * recently" — a scholarship discovered weeks ago that only just cleared
+ * review (or crossed the confidence bar) still needs to reach everyone
+ * exactly once. Per-subscriber sends dedup via DeliveryLog; the group/channel
+ * broadcast dedups via Scholarship.groupBroadcastAt / telegramBroadcastAt.
+ *
  * @param maxPerSubscriber cap how many scholarships one subscriber gets per run,
- *                     so a big crawl does not spam anyone
+ *                     so a big backlog does not spam anyone
  */
 export async function dispatchDeliveries(
-  opts: { sinceMinutes?: number; maxPerSubscriber?: number; dryRun?: boolean } = {}
+  opts: { maxPerSubscriber?: number; dryRun?: boolean } = {}
 ): Promise<DispatchSummary> {
-  const sinceMinutes = opts.sinceMinutes ?? 1500;
   const maxPer = opts.maxPerSubscriber ?? 15;
-  const since = new Date(Date.now() - sinceMinutes * 60_000);
 
   const summary: DispatchSummary = {
     subscribers: 0,
@@ -74,27 +78,47 @@ export async function dispatchDeliveries(
     whatsappSent: 0,
     telegramSent: 0,
     groupBroadcast: false,
+    telegramBroadcast: false,
     failures: 0
   };
 
-  // ── Group / channel broadcast (once per batch) ──────────────────────────────
-  // New scholarships in the window, newest first, for the shared group/channel.
-  const recent = await ScholarshipModel.find({
+  // ── Group broadcast (WhatsApp) — anything OPEN/CLOSING_SOON not yet posted ──
+  const groupPending = await ScholarshipModel.find({
     status: { $in: ['OPEN', 'CLOSING_SOON'] },
-    createdAt: { $gte: since }
+    groupBroadcastAt: null
   })
     .sort({ createdAt: -1 })
     .limit(15)
     .lean();
 
-  if (recent.length > 0 && !opts.dryRun) {
-    const shaped = recent.map(toEmailShape);
-    if (await whatsappConfigured()) {
-      const r = await broadcastToGroup(shaped).catch(() => ({ ok: false }));
-      if (r.ok) summary.groupBroadcast = true;
+  if (groupPending.length > 0 && !opts.dryRun && (await whatsappConfigured())) {
+    const r = await broadcastToGroup(groupPending.map(toEmailShape)).catch(() => ({ ok: false }));
+    if (r.ok) {
+      summary.groupBroadcast = true;
+      await ScholarshipModel.updateMany(
+        { _id: { $in: groupPending.map((s: any) => s._id) } },
+        { $set: { groupBroadcastAt: new Date() } }
+      );
     }
-    if (env.SCHOLARSHIP_TELEGRAM_CHANNEL && telegramConfigured()) {
-      await broadcastToChannel(shaped).catch(() => undefined);
+  }
+
+  // ── Channel broadcast (Telegram) — same pattern, independent dedup field ──
+  const telegramPending = await ScholarshipModel.find({
+    status: { $in: ['OPEN', 'CLOSING_SOON'] },
+    telegramBroadcastAt: null
+  })
+    .sort({ createdAt: -1 })
+    .limit(15)
+    .lean();
+
+  if (telegramPending.length > 0 && !opts.dryRun && env.SCHOLARSHIP_TELEGRAM_CHANNEL && telegramConfigured()) {
+    const r = await broadcastToChannel(telegramPending.map(toEmailShape)).catch(() => ({ ok: false }));
+    if (r.ok) {
+      summary.telegramBroadcast = true;
+      await ScholarshipModel.updateMany(
+        { _id: { $in: telegramPending.map((s: any) => s._id) } },
+        { $set: { telegramBroadcastAt: new Date() } }
+      );
     }
   }
 
@@ -113,11 +137,11 @@ export async function dispatchDeliveries(
         }
       }
 
-      // Candidate scholarships for this subscriber, newest first.
-      const candidates = await ScholarshipModel.find({
-        ...subscriberFilter(sub),
-        createdAt: { $gte: since }
-      })
+      // Candidate scholarships for this subscriber, newest first. Not
+      // time-windowed — DeliveryLog below is the dedup, so a scholarship
+      // that only just became eligible still reaches them regardless of
+      // when it was originally discovered.
+      const candidates = await ScholarshipModel.find(subscriberFilter(sub))
         .sort({ createdAt: -1 })
         .limit(maxPer * 2)
         .lean();

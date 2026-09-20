@@ -5,7 +5,7 @@ import { dispatchDeliveries } from '../services/scholarship/delivery/dispatcher'
 (async () => {
   await connectMongo();
   const dryRun = process.argv.includes('--dry-run');
-  const summary = await dispatchDeliveries({ dryRun, sinceMinutes: 10080 }); // last 7 days
+  const summary = await dispatchDeliveries({ dryRun });
   console.log(JSON.stringify(summary, null, 2));
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

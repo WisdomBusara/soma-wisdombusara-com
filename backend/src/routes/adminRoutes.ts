@@ -605,14 +605,27 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
     } catch (err) { return next(err); }
   });
 
-  /** POST /admin/wa-bots/:id/start — start WAHA session */
+  /** Same URL shape used by /start (inline) and /configure-webhook (explicit) — one source of truth. */
+  const wahaWebhookUrlFor = (bot: { _id: unknown; webhookSecret: string }): string => {
+    const base = String((env as any).TELEGRAM_WEBHOOK_BASE_URL ?? '').replace(/\/$/, '');
+    return `${base}/whatsapp/inbound/${String(bot._id)}/${bot.webhookSecret}`;
+  };
+
+  /** POST /admin/wa-bots/:id/start — start WAHA session, webhook included */
   router.post('/wa-bots/:id/start', async (req, res, next) => {
     try {
       const bot = await WhatsAppBotModel.findById(req.params.id).lean();
       if (!bot) return res.status(404).json({ error: 'Not found' });
       const apiKey = bot.wahaApiKeyEnc ? decryptString(bot.wahaApiKeyEnc) : undefined;
-      await startWahaSession(bot.wahaUrl, bot.wahaSessionName, apiKey);
-      return res.json({ ok: true });
+      const webhookUrl = wahaWebhookUrlFor(bot);
+      await startWahaSession(bot.wahaUrl, bot.wahaSessionName, apiKey, webhookUrl);
+      // Belt and suspenders: some WAHA builds ignore inline config on session
+      // creation, so explicitly (re-)apply it too. A failure here must not
+      // fail session start — the QR flow still needs to work either way.
+      await configureWahaWebhook(bot.wahaUrl, bot.wahaSessionName, webhookUrl, apiKey).catch((err) =>
+        logger.warn({ err, botId: req.params.id }, 'wa-bot start: webhook re-apply failed')
+      );
+      return res.json({ ok: true, webhookUrl });
     } catch (err) { return next(err); }
   });
 
@@ -622,8 +635,7 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
       const bot = await WhatsAppBotModel.findById(req.params.id).lean();
       if (!bot) return res.status(404).json({ error: 'Not found' });
       const apiKey = bot.wahaApiKeyEnc ? decryptString(bot.wahaApiKeyEnc) : undefined;
-      const base = String((env as any).TELEGRAM_WEBHOOK_BASE_URL ?? '').replace(/\/$/, '');
-      const webhookUrl = `${base}/whatsapp/inbound/${String(bot._id)}/${bot.webhookSecret}`;
+      const webhookUrl = wahaWebhookUrlFor(bot);
       await configureWahaWebhook(bot.wahaUrl, bot.wahaSessionName, webhookUrl, apiKey);
       return res.json({ ok: true, webhookUrl });
     } catch (err) { return next(err); }

@@ -157,13 +157,20 @@ export async function getSessionStatus(
 export async function startSession(
   wahaUrl: string,
   session: string,
-  apiKey?: string
+  apiKey?: string,
+  webhookUrl?: string
 ): Promise<void> {
   const c = client(wahaUrl, apiKey);
   // Delete any existing session (handles FAILED/STOPPED state cleanly)
   try { await c.delete(`/api/sessions/${encodeURIComponent(session)}`); } catch { /* ok if not found */ }
-  // Create fresh session with start:true — GOWS/WEBJS will generate a new QR
-  await c.post('/api/sessions', { name: session, start: true });
+  // Create fresh session with start:true — GOWS/WEBJS will generate a new QR.
+  // A DELETE+recreate wipes any previously configured webhook, so it's
+  // re-supplied inline here — recreating a session must never leave it
+  // webhook-less, or the bot silently stops responding until someone
+  // remembers to click "Configure Webhook" by hand.
+  const body: Record<string, unknown> = { name: session, start: true };
+  if (webhookUrl) body.config = { webhooks: [{ url: webhookUrl, events: ['message', 'message.any'] }] };
+  await c.post('/api/sessions', body);
 }
 
 export async function configureWebhook(

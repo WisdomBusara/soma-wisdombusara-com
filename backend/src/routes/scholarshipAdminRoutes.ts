@@ -21,6 +21,7 @@ import { domainStats } from '../services/scholarship/politeness';
 import { AdSlotModel, AD_PLACEMENTS, ScholarshipAccessModel } from '../models/scholarship/access';
 import { getScholarshipBotStatus } from '../services/scholarship/delivery/telegram';
 import { recordReviewFeedback, learnFromFeedback, getLearningSnapshot } from '../services/scholarship/learning';
+import { dispatchDeliveries } from '../services/scholarship/delivery/dispatcher';
 
 /**
  * Scholarship admin surface (§32, §33, §34, §61).
@@ -606,6 +607,25 @@ export function scholarshipAdminRouter() {
         logger.error({ err }, 'scholarship: admin-triggered cycle failed')
       );
       return res.status(202).json({ started: true });
+    } catch (err) { return next(err); }
+  });
+
+  /**
+   * On-demand delivery, no crawl. Posts whatever is already OPEN/CLOSING_SOON
+   * and undelivered to the scholarships WhatsApp group + Telegram channel +
+   * per-subscriber channels, right now — this is the "Send Report Now"
+   * equivalent for scholarships. The nightly cycle already does this as its
+   * last stage; this lets an admin trigger it without waiting for or
+   * re-running the (much slower) crawl.
+   *
+   * Same caveat as the Jobs/Tenders report: the group broadcast has no
+   * per-broadcast dedup, so clicking this twice within the lookback window
+   * reposts the same batch to the group.
+   */
+  router.post('/deliver', async (_req, res, next) => {
+    try {
+      const summary = await dispatchDeliveries();
+      return res.json({ summary });
     } catch (err) { return next(err); }
   });
 

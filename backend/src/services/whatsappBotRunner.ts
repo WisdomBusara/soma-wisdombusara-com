@@ -308,7 +308,7 @@ export class WhatsAppBotRunner {
   private async showVerticalChoice(waBotId: string, phone: string, send: (m: string) => Promise<void>): Promise<void> {
     await this.setPending(`${waBotId}:${phone}`, { kind: 'awaitVertical', waBotId });
     await send(
-      '👋 *Welcome to The Wraith Project!*\n\nWhat are you looking for?\n\n' +
+      '👋 *Welcome to Wisdom Busara!*\n\nWhat are you looking for?\n\n' +
       '*1.* 💼 Job alerts\n*2.* 📋 Tender alerts\n\n' +
       'Reply *1* or *2*.\n\n_⭐ Premium members get both._'
     );
@@ -319,7 +319,7 @@ export class WhatsAppBotRunner {
     await this.setPending(`${waBotId}:${phone}`, { kind: 'awaitPremiumChoice', waBotId });
     const hi = name ? `⭐ Hi *${name}*` : '⭐ Welcome back';
     await send(
-      `${hi} — you're on *The Wraith Project Premium* 🎯\n\nWhat would you like today?\n\n` +
+      `${hi} — you're on *Wisdom Busara Premium* 🎯\n\nWhat would you like today?\n\n` +
       '*1.* 💼 Jobs (by category)\n*2.* 📋 Tenders (last 24h)\n\n' +
       'Reply *1* or *2*.\n\n_Commands: */menu* · */bye*_'
     );
@@ -355,10 +355,10 @@ export class WhatsAppBotRunner {
     const counts = await todayCategoryCounts();
     const greeting = name ? `👋 Hi *${name}*` : '👋 Welcome back';
     if (counts.length === 0) {
-      await send(`${greeting} — you're on *The Wraith Project Premium*.\n\nNo categorized jobs in the last 24 hours yet. The daily scan lands at 07:00 EAT — check back then! 🗞️`);
+      await send(`${greeting} — you're on *Wisdom Busara Premium*.\n\nNo categorized jobs in the last 24 hours yet. The daily scan lands at 07:00 EAT — check back then! 🗞️`);
       return;
     }
-    let msg = `${greeting} — *The Wraith Project Premium* 🎯\n\nJob categories from the last 24 hours:\n\n`;
+    let msg = `${greeting} — *Wisdom Busara Premium* 🎯\n\nJob categories from the last 24 hours:\n\n`;
     counts.forEach((c, i) => {
       msg += `*${i + 1}.* ${c.category} (${c.count})\n`;
     });
@@ -408,7 +408,7 @@ export class WhatsAppBotRunner {
     });
 
     let msg = `✅ *Free trial active!* You have *${plan.name}* access.\n\n`;
-    if (addedDirectly) msg += `You've been added to *The Wraith Project* group! 🎉`;
+    if (addedDirectly) msg += `You've been added to *Wisdom Busara* group! 🎉`;
     else if (inviteLink) msg += `👇 Join the group with this link — *it expires in 5 minutes*:\n${inviteLink}`;
     else msg += `Please ask an admin to add you to the group.`;
     await send(msg);

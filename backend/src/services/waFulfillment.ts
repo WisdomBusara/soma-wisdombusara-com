@@ -40,7 +40,7 @@ export async function buildRecentDigest(vertical: 'jobs' | 'tenders' = 'jobs'): 
   const byCompany: Record<string, typeof jobs> = {};
   for (const j of jobs) (byCompany[j.bankName] ??= []).push(j);
 
-  let msg = `🗞️ *Catch-up — what Wraith found in the last 24 hours:*\n\n`;
+  let msg = `🗞️ *Catch-up — what Wisdom Busara found in the last 24 hours:*\n\n`;
   for (const [company, list] of Object.entries(byCompany)) {
     msg += `*${company}*\n`;
     for (const j of list.slice(0, 5)) msg += `• ${j.title}\n  ${j.url}\n`;
@@ -57,7 +57,7 @@ export async function welcomeToGroup(waBot: any, chatId: string, apiKey?: string
   try {
     await sendMessageWithMentions(
       waBot.wahaUrl, waBot.wahaSessionName, groupJid || waBot.groupId,
-      `👋 @${handle} — welcome to *The Wraith Project*.`,
+      `👋 @${handle} — welcome to *Wisdom Busara*.`,
       [chatId],
       apiKey
     );

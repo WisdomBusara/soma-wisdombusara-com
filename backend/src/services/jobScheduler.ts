@@ -208,7 +208,7 @@ async function runJobReportInner(vertical: Vertical): Promise<void> {
 
   try {
     if (totalNew === 0) {
-      await send(`${cfg.emoji} *${cfg.header} — ${formatDate(now)}*\n\n_No new ${cfg.noun}s today. Check back tomorrow!_\n\n_Updated daily at 7 AM · The Wraith Project_`);
+      await send(`${cfg.emoji} *${cfg.header} — ${formatDate(now)}*\n\n_No new ${cfg.noun}s today. Check back tomorrow!_\n\n_Updated daily at 7 AM · Wisdom Busara_`);
     } else {
       // Header message
       await send(`${cfg.emoji} *${cfg.header} — ${formatDate(now)}*\n_${totalNew} new ${cfg.noun}${totalNew !== 1 ? 's' : ''} across ${Object.keys(newByBank).length} source${Object.keys(newByBank).length !== 1 ? 's' : ''}_`);
@@ -244,7 +244,7 @@ async function runJobReportInner(vertical: Vertical): Promise<void> {
       }
 
       // Footer
-      await send(`_Updated daily at 7 AM · The Wraith Project_`);
+      await send(`_Updated daily at 7 AM · Wisdom Busara_`);
     }
 
     logger.info({ vertical, groupJid, telegramChatId, totalNew }, 'Report send complete');

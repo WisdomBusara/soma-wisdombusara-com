@@ -97,7 +97,7 @@ export function paystackWebhookRouter() {
             let msg = `✅ *Payment confirmed!* Your *${plan.name}* access is now active.\n\n`;
             if (plan.videoUrl) msg += `🎬 Video link:\n${plan.videoUrl}\n\n`;
             if (addedDirectly) {
-              msg += `You've been added to *The Wraith Project* group! 🎉`;
+              msg += `You've been added to *Wisdom Busara* group! 🎉`;
             } else if (inviteLink) {
               msg += `You have "invite-only" settings, so we couldn't add you directly.\n` +
                 `👇 Join the group using this link — *it expires in 5 minutes*:\n${inviteLink}`;

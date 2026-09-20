@@ -6,6 +6,7 @@ import { JobRunStateModel } from '../models/JobRunState';
 import { WhatsAppBotModel } from '../models/WhatsAppBot';
 import { scrapeAllBanks, type ScrapedJob } from './jobScraper';
 import { sendMessage as wahaSend } from './waha';
+import { sendMessage as tgSend } from './telegramApi';
 import { decryptString } from '../utils/encryption';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -20,14 +21,16 @@ const VERTICAL_CFG = {
     emoji: '🏦',
     header: 'KENYA JOBS',
     noun: 'listing',
-    groupOf: (bot: any) => bot?.jobReportGroupId || bot?.groupId || env.JOB_REPORT_GROUP_JID
+    groupOf: (bot: any) => bot?.jobReportGroupId || bot?.groupId || env.JOB_REPORT_GROUP_JID,
+    telegramChatId: () => env.JOB_REPORT_TELEGRAM_CHAT_ID
   },
   tenders: {
     stateId: 'job-report:tenders',
     emoji: '📋',
     header: 'KENYA TENDERS',
     noun: 'tender',
-    groupOf: (bot: any) => bot?.tendersGroupId  // no fallback — never leak into the jobs group
+    groupOf: (bot: any) => bot?.tendersGroupId,  // no fallback — never leak into the jobs group
+    telegramChatId: () => env.TENDERS_TELEGRAM_CHAT_ID
   }
 } as const;
 
@@ -165,20 +168,43 @@ async function runJobReportInner(vertical: Vertical): Promise<void> {
   logger.info({ vertical, totalNew, sources: Object.keys(newByBank).length }, 'Report: deduplication done');
   await updateStatus(vertical, { state: 'sending', newJobs: totalNew, banksWithNew: Object.keys(newByBank).length } as any);
 
-  // Resolve send target from the first active bot
+  // Resolve send targets from the first active bot. WhatsApp and Telegram are
+  // independent destinations — one being unconfigured or down must never
+  // block the other, since they don't share infrastructure.
   const waBot = await WhatsAppBotModel.findOne({ isActive: true }).lean();
   const wahaUrl  = waBot?.wahaUrl         ?? env.JOB_REPORT_WAHA_URL;
   const session  = waBot?.wahaSessionName ?? env.JOB_REPORT_WAHA_SESSION ?? 'default';
   const groupJid = cfg.groupOf(waBot as any);
   const apiKey   = waBot?.wahaApiKeyEnc ? decryptString(waBot.wahaApiKeyEnc) : env.WAHA_DEFAULT_API_KEY;
-  logger.info({ vertical, botId: waBot ? String(waBot._id) : null, groupJid }, 'Report: resolved target');
+  const whatsappReady = Boolean(wahaUrl && groupJid);
 
-  if (!wahaUrl || !groupJid) {
-    logger.warn({ vertical }, 'No report group configured for this vertical — set it in the admin panel');
+  const telegramChatId = cfg.telegramChatId();
+  const telegramReady = Boolean(telegramChatId && env.SCHOLARSHIP_TELEGRAM_BOT_TOKEN);
+
+  logger.info(
+    { vertical, botId: waBot ? String(waBot._id) : null, groupJid, telegramChatId, whatsappReady, telegramReady },
+    'Report: resolved target'
+  );
+
+  if (!whatsappReady && !telegramReady) {
+    logger.warn({ vertical }, 'No report destination configured for this vertical — set a WhatsApp group or Telegram chat in the admin panel');
     return;
   }
 
-  const send = (text: string) => wahaSend(wahaUrl!, session, groupJid!, text, apiKey);
+  const send = async (text: string): Promise<void> => {
+    await Promise.allSettled([
+      whatsappReady
+        ? wahaSend(wahaUrl!, session, groupJid!, text, apiKey).catch((err) =>
+            logger.error({ err, vertical }, 'Failed to send report to WhatsApp')
+          )
+        : Promise.resolve(),
+      telegramReady
+        ? tgSend(env.SCHOLARSHIP_TELEGRAM_BOT_TOKEN!, telegramChatId!, text).catch((err) =>
+            logger.error({ err, vertical }, 'Failed to send report to Telegram')
+          )
+        : Promise.resolve()
+    ]);
+  };
 
   try {
     if (totalNew === 0) {
@@ -221,9 +247,11 @@ async function runJobReportInner(vertical: Vertical): Promise<void> {
       await send(`_Updated daily at 7 AM · The Wraith Project_`);
     }
 
-    logger.info({ vertical, groupJid, totalNew }, 'Report sent to WhatsApp group');
+    logger.info({ vertical, groupJid, telegramChatId, totalNew }, 'Report send complete');
   } catch (err) {
-    logger.error({ err, vertical }, 'Failed to send report to WhatsApp');
+    // send() itself never throws (each channel catches its own errors) — this
+    // only catches something upstream, e.g. a bug in message assembly.
+    logger.error({ err, vertical }, 'Report send failed unexpectedly');
   }
 }
 

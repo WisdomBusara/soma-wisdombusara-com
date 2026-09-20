@@ -48,6 +48,11 @@ const envSchema = z.object({
   JOB_REPORT_GROUP_JID:    z.string().optional(),
   JOB_REPORT_WAHA_URL:     z.string().url().optional(),
   JOB_REPORT_WAHA_SESSION: z.string().optional(),
+  // Optional Telegram mirror for the same daily reports, via the same bot as
+  // SCHOLARSHIP_TELEGRAM_BOT_TOKEN — independent of the WhatsApp group above,
+  // so one channel being down never blocks the other.
+  JOB_REPORT_TELEGRAM_CHAT_ID: z.string().optional(),
+  TENDERS_TELEGRAM_CHAT_ID:    z.string().optional(),
 
   // ── Scholarship Intelligence Engine (§40) ────────────────────────────────
   // Every value has a default, so an existing deployment keeps booting with an

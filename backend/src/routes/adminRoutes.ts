@@ -640,8 +640,11 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
         { headers: apiKey ? { 'X-Api-Key': apiKey } : {}, timeout: 10_000 }
       );
       const groups = (resp.data ?? []).map((g: any) => ({
-        // WEBJS uses id/_serialized/subject; GOWS uses JID/Name/Participants
-        id: String(g.JID ?? g.id ?? g._serialized ?? ''),
+        // WEBJS returns id as a nested { server, user, _serialized } object,
+        // not a string — check g.id._serialized before the bare g.id, or
+        // String(g.id) silently becomes the literal "[object Object]".
+        // GOWS uses JID/Name/Participants instead.
+        id: String(g.JID ?? g.id?._serialized ?? g.id ?? g._serialized ?? ''),
         name: String(g.Name ?? g.subject ?? g.name ?? ''),
         size: Number(g.ParticipantCount ?? g.Participants?.length ?? g.size ?? g.participantsCount ?? 0)
       }));

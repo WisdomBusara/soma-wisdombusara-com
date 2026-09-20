@@ -13,6 +13,7 @@ import { closeBrowser } from './fetcher';
 import { ensureScholarshipIndexes } from './indexes';
 import { dispatchDeliveries } from './delivery/dispatcher';
 import { ensureTelegramWebhook } from './delivery/telegram';
+import { loadClassifierWeights, learnFromFeedback } from './learning';
 
 /**
  * Scheduling (§27).
@@ -106,6 +107,7 @@ export interface CycleSummary {
   crawl?: { processed: number; created: number; updated: number };
   statuses?: { scanned: number; changed: number };
   priorities?: { raised: number; lowered: number };
+  learning?: { processed: number; weightsAdjusted: number; domainsAdjusted: number };
   durationMs: number;
 }
 
@@ -189,6 +191,17 @@ export async function runScholarshipCycle(
     }
   }
 
+  // Stage 7 — fold admin review decisions into classifier weights + crawl
+  // priority (§ self-improvement loop). Runs last so it reflects same-cycle
+  // approvals/rejections too.
+  if (!opts.dryRun) {
+    try {
+      summary.learning = await learnFromFeedback();
+    } catch (err) {
+      logger.error({ err }, 'scholarship: learning stage failed');
+    }
+  }
+
   await closeBrowser();
   summary.durationMs = Date.now() - started;
   logger.info({ summary }, 'scholarship: cycle complete');
@@ -210,6 +223,10 @@ export class ScholarshipScheduler {
     void ensureScholarshipIndexes().catch((err) =>
       logger.error({ err }, 'scholarship: index provisioning failed at startup')
     );
+
+    // Restore any weights the learning loop nudged before the last restart —
+    // otherwise every deploy would silently reset the classifier to defaults.
+    void loadClassifierWeights();
 
     // Main cycle — configurable, defaults to 02:00 UTC so it never overlaps the
     // 04:00/04:20 jobs and tenders reports.

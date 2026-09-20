@@ -8,6 +8,7 @@ import {
   ExtractionRunModel,
   ScholarshipChangeModel
 } from '../../models/scholarship/operational';
+import { ReviewFeedbackModel } from '../../models/scholarship/ReviewFeedback';
 
 /**
  * Index provisioning.
@@ -39,7 +40,8 @@ const MODELS = [
   { name: 'CrawlTarget', model: CrawlTargetModel },
   { name: 'CrawlRun', model: CrawlRunModel },
   { name: 'ExtractionRun', model: ExtractionRunModel },
-  { name: 'ScholarshipChange', model: ScholarshipChangeModel }
+  { name: 'ScholarshipChange', model: ScholarshipChangeModel },
+  { name: 'ScholarshipReviewFeedback', model: ReviewFeedbackModel }
 ];
 
 export async function ensureScholarshipIndexes(): Promise<{ created: string[]; failed: string[] }> {

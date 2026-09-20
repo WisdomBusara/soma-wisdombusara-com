@@ -20,6 +20,7 @@ import { refreshStatuses } from '../services/scholarship/status';
 import { domainStats } from '../services/scholarship/politeness';
 import { AdSlotModel, AD_PLACEMENTS, ScholarshipAccessModel } from '../models/scholarship/access';
 import { getScholarshipBotStatus } from '../services/scholarship/delivery/telegram';
+import { recordReviewFeedback, learnFromFeedback, getLearningSnapshot } from '../services/scholarship/learning';
 
 /**
  * Scholarship admin surface (§32, §33, §34, §61).
@@ -161,7 +162,114 @@ export function scholarshipAdminRouter() {
     } catch (err) { return next(err); }
   });
 
-  /** APPROVE / REJECT / EDIT (§34) */
+  /**
+   * Shared APPROVE / REJECT / EDIT logic (§34), used by both the single-item
+   * and bulk routes below. Every APPROVE/REJECT also feeds
+   * services/scholarship/learning.ts's feedback log — that's the substrate
+   * the self-improvement loop nudges classifier weights and crawl-target
+   * priority from.
+   */
+  async function applyReview(
+    id: string,
+    action: 'APPROVE' | 'REJECT' | 'EDIT',
+    note: string | undefined,
+    patch: Record<string, unknown> | undefined,
+    adminUserId: unknown
+  ): Promise<{ id: string; reviewStatus: string; status: string } | null> {
+    const existing = await ScholarshipModel.findById(id)
+      .select('sourceUrl confidence classificationScore classificationReasons extractionMethod')
+      .lean();
+    if (!existing) return null;
+
+    const update: Record<string, unknown> = {
+      reviewedBy: adminUserId,
+      reviewedAt: new Date(),
+      reviewNote: note
+    };
+
+    if (action === 'APPROVE') {
+      update.reviewStatus = 'APPROVED';
+      update.lastVerifiedAt = new Date();
+    } else if (action === 'REJECT') {
+      update.reviewStatus = 'REJECTED';
+      // Not deleted — kept so the crawler does not re-create it next cycle
+      update.status = 'CLOSED';
+    } else if (patch) {
+      // Manual edits are authoritative and marked as such
+      const allowed = [
+        'title', 'provider', 'degreeLevels', 'fieldsOfStudy', 'studyMode',
+        'attendance', 'deliveryMode', 'academicYear', 'intake', 'duration',
+        'description', 'city'
+      ];
+      for (const [k, v] of Object.entries(patch)) {
+        if (allowed.includes(k)) update[k] = v;
+      }
+      update.extractionMethod = 'MANUAL';
+      update.reviewStatus = 'APPROVED';
+    }
+
+    const updated = await ScholarshipModel.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
+    if (!updated) return null;
+
+    await ScholarshipChangeModel.create({
+      scholarshipId: id,
+      field: 'reviewStatus',
+      oldValue: null,
+      newValue: update.reviewStatus,
+      changeType: 'UPDATED',
+      significance: 'MINOR',
+      detectedAt: new Date()
+    }).catch(() => undefined);
+
+    if (action === 'APPROVE' || action === 'REJECT') {
+      recordReviewFeedback({
+        scholarshipId: id,
+        decision: action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
+        sourceUrl: existing.sourceUrl,
+        confidence: existing.confidence,
+        classificationScore: existing.classificationScore,
+        classificationReasons: existing.classificationReasons,
+        extractionMethod: existing.extractionMethod,
+        reviewedBy: adminUserId
+      }).catch((err) => logger.error({ err, id }, 'scholarship: failed to record review feedback'));
+    }
+
+    return { id, reviewStatus: updated.reviewStatus, status: updated.status };
+  }
+
+  /**
+   * Bulk APPROVE / REJECT — same effect as the single-item route below,
+   * looped. Registered before the `:id` route so Express doesn't swallow the
+   * literal path "bulk" as an id param.
+   */
+  router.patch('/scholarships/bulk', async (req, res, next) => {
+    try {
+      const body = z.object({
+        ids: z.array(z.string()).min(1).max(200),
+        action: z.enum(['APPROVE', 'REJECT']),
+        note: z.string().max(1000).optional()
+      }).parse(req.body);
+
+      const adminUserId = (req as any).auth?.userId;
+      let updated = 0;
+      const failed: string[] = [];
+
+      for (const id of body.ids) {
+        if (!objectId(id)) { failed.push(id); continue; }
+        try {
+          const result = await applyReview(id, body.action, body.note, undefined, adminUserId);
+          if (result) updated += 1; else failed.push(id);
+        } catch (err) {
+          logger.error({ err, id }, 'scholarship: bulk review failed for one id');
+          failed.push(id);
+        }
+      }
+
+      return res.json({ updated, failed });
+    } catch (err) { return next(err); }
+  });
+
+  /** APPROVE / REJECT / EDIT a single scholarship (§34) */
   router.patch('/scholarships/:id', async (req, res, next) => {
     try {
       const id = String(req.params.id);
@@ -173,47 +281,9 @@ export function scholarshipAdminRouter() {
         patch: z.record(z.unknown()).optional()
       }).parse(req.body);
 
-      const update: Record<string, unknown> = {
-        reviewedBy: (req as any).auth?.userId,
-        reviewedAt: new Date(),
-        reviewNote: body.note
-      };
-
-      if (body.action === 'APPROVE') {
-        update.reviewStatus = 'APPROVED';
-        update.lastVerifiedAt = new Date();
-      } else if (body.action === 'REJECT') {
-        update.reviewStatus = 'REJECTED';
-        // Not deleted — kept so the crawler does not re-create it next cycle
-        update.status = 'CLOSED';
-      } else if (body.patch) {
-        // Manual edits are authoritative and marked as such
-        const allowed = [
-          'title', 'provider', 'degreeLevels', 'fieldsOfStudy', 'studyMode',
-          'attendance', 'deliveryMode', 'academicYear', 'intake', 'duration',
-          'description', 'city'
-        ];
-        for (const [k, v] of Object.entries(body.patch)) {
-          if (allowed.includes(k)) update[k] = v;
-        }
-        update.extractionMethod = 'MANUAL';
-        update.reviewStatus = 'APPROVED';
-      }
-
-      const updated = await ScholarshipModel.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
-      if (!updated) return res.status(404).json({ error: 'Not found' });
-
-      await ScholarshipChangeModel.create({
-        scholarshipId: id,
-        field: 'reviewStatus',
-        oldValue: null,
-        newValue: update.reviewStatus,
-        changeType: 'UPDATED',
-        significance: 'MINOR',
-        detectedAt: new Date()
-      }).catch(() => undefined);
-
-      return res.json({ id, reviewStatus: updated.reviewStatus, status: updated.status });
+      const result = await applyReview(id, body.action, body.note, body.patch, (req as any).auth?.userId);
+      if (!result) return res.status(404).json({ error: 'Not found' });
+      return res.json(result);
     } catch (err) { return next(err); }
   });
 
@@ -548,6 +618,20 @@ export function scholarshipAdminRouter() {
   router.post('/reprioritize', async (_req, res, next) => {
     try {
       return res.json(await reprioritizeTargets());
+    } catch (err) { return next(err); }
+  });
+
+  /** Self-improvement loop (§ learning): read current weights + approve/reject stats. */
+  router.get('/learning', async (_req, res, next) => {
+    try {
+      return res.json(await getLearningSnapshot());
+    } catch (err) { return next(err); }
+  });
+
+  /** Fold pending review feedback into classifier weights + crawl priority. */
+  router.post('/learn', async (_req, res, next) => {
+    try {
+      return res.json(await learnFromFeedback());
     } catch (err) { return next(err); }
   });
 

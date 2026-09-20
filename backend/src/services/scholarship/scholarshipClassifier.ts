@@ -15,6 +15,33 @@ import { cleanText } from './normalize/text';
 export const PAGE_THRESHOLD = 0.55;
 export const LINK_THRESHOLD = 5;
 
+// ── Learned weights (self-improvement loop) ─────────────────────────────────
+//
+// Each positive/negative scoring contribution below is tagged with the same
+// string it pushes into `reasons`. services/scholarship/learning.ts nudges
+// these multipliers based on how often admins approve vs reject pages that
+// carried each reason, then calls setClassifierWeights() with the result.
+// Bounded to +/-50% so a bad batch of feedback cannot invert the classifier's
+// behaviour, and fully overridable/resettable by an operator since it is just
+// a flat map, not a retrained model.
+
+const WEIGHT_MIN = 0.5;
+const WEIGHT_MAX = 1.5;
+let weightOverrides: Record<string, number> = {};
+
+export function setClassifierWeights(weights: Record<string, number>): void {
+  weightOverrides = { ...weights };
+}
+
+export function getClassifierWeights(): Record<string, number> {
+  return { ...weightOverrides };
+}
+
+function w(reasonKey: string): number {
+  const v = weightOverrides[reasonKey];
+  return typeof v === 'number' ? Math.min(WEIGHT_MAX, Math.max(WEIGHT_MIN, v)) : 1;
+}
+
 function wb(words: string[]): RegExp {
   const escaped = words.map((w) => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'));
   return new RegExp('\\b(' + escaped.join('|') + ')\\b', 'i');
@@ -263,18 +290,18 @@ export function classifyScholarshipPage(input: PageInput): PageVerdict {
 
   let score = 0;
 
-  if (STRONG_WORDS.test(title)) { score += 0.25; reasons.push('strong scholarship word in title'); }
-  else if (SCHOLARSHIP_WORDS.test(title)) { score += 0.12; reasons.push('scholarship word in title'); }
-  if (SCHOLARSHIP_URL.test(url)) { score += 0.1; reasons.push('scholarship URL'); }
-  if (STRONG_WORDS.test(headings)) { score += 0.1; reasons.push('scholarship heading'); }
+  if (STRONG_WORDS.test(title)) { score += 0.25 * w('strong scholarship word in title'); reasons.push('strong scholarship word in title'); }
+  else if (SCHOLARSHIP_WORDS.test(title)) { score += 0.12 * w('scholarship word in title'); reasons.push('scholarship word in title'); }
+  if (SCHOLARSHIP_URL.test(url)) { score += 0.1 * w('scholarship URL'); reasons.push('scholarship URL'); }
+  if (STRONG_WORDS.test(headings)) { score += 0.1 * w('scholarship heading'); reasons.push('scholarship heading'); }
 
-  if (evidence.funding) { score += 0.2; reasons.push('contains funding information'); }
-  if (evidence.eligibility) { score += 0.18; reasons.push('contains eligibility criteria'); }
-  if (evidence.application) { score += 0.16; reasons.push('contains application instructions'); }
-  if (evidence.deadline) { score += 0.14; reasons.push('contains application deadline'); }
+  if (evidence.funding) { score += 0.2 * w('contains funding information'); reasons.push('contains funding information'); }
+  if (evidence.eligibility) { score += 0.18 * w('contains eligibility criteria'); reasons.push('contains eligibility criteria'); }
+  if (evidence.application) { score += 0.16 * w('contains application instructions'); reasons.push('contains application instructions'); }
+  if (evidence.deadline) { score += 0.14 * w('contains application deadline'); reasons.push('contains application deadline'); }
 
   if (input.structuredDataTypes?.some((t) => /EducationalOccupationalProgram|Grant|MonetaryGrant|Course/i.test(t))) {
-    score += 0.08; reasons.push('structured data signals a funded programme');
+    score += 0.08 * w('structured data signals a funded programme'); reasons.push('structured data signals a funded programme');
   }
 
   // Density check — one passing mention in a 20k-word prospectus is not a page
@@ -282,15 +309,15 @@ export function classifyScholarshipPage(input: PageInput): PageVerdict {
   const mentions = (body.match(/scholarship|studentship|bursar|fellowship/gi) ?? []).length;
   const words = body.split(/\s+/).length;
   if (mentions >= 3 && words > 0 && mentions / words > 0.0015) {
-    score += 0.08; reasons.push('sustained scholarship focus');
+    score += 0.08 * w('sustained scholarship focus'); reasons.push('sustained scholarship focus');
   } else if (mentions <= 1 && words > 1500) {
-    score -= 0.2; reasons.push('single passing mention in a long page');
+    score -= 0.2 * w('single passing mention in a long page'); reasons.push('single passing mention in a long page');
   }
 
-  if (NEWS_URL.test(url)) { score -= 0.25; reasons.push('news/blog path'); }
+  if (NEWS_URL.test(url)) { score -= 0.25 * w('news/blog path'); reasons.push('news/blog path'); }
   // Past-tense award announcements
   if (/\b(has been awarded|was awarded|received the .{0,40}scholarship|winners? (?:of|were)|recipients? (?:of|were))\b/i.test(head)) {
-    score -= 0.2; reasons.push('reads as an award announcement');
+    score -= 0.2 * w('reads as an award announcement'); reasons.push('reads as an award announcement');
   }
 
   const evidenceCount = Object.values(evidence).filter(Boolean).length;

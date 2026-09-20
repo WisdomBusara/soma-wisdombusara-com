@@ -20,16 +20,24 @@ export interface GrantAccessArgs {
   chatId: string;             // full JID (…@c.us or …@lid)
   reference: string;
   botId?: Types.ObjectId;     // placeholder ObjectId for WA-platform payments
-  vertical?: 'jobs' | 'tenders';  // which group the plan grants (default jobs)
+  vertical?: 'jobs' | 'tenders' | 'scholarships';  // which group the plan grants (default jobs)
 }
 
 /** The group JID a vertical grants access to. */
-export function groupForVertical(waBot: any, vertical?: 'jobs' | 'tenders'): string {
-  return vertical === 'tenders' ? (waBot.tendersGroupId || waBot.groupId) : waBot.groupId;
+export function groupForVertical(waBot: any, vertical?: 'jobs' | 'tenders' | 'scholarships'): string {
+  if (vertical === 'tenders') return waBot.tendersGroupId || waBot.groupId;
+  if (vertical === 'scholarships') return waBot.scholarshipGroupId || waBot.groupId;
+  return waBot.groupId;
 }
 
-/** Digest of jobs first seen in the last 24h — what the 07:00 report covered. */
-export async function buildRecentDigest(vertical: 'jobs' | 'tenders' = 'jobs'): Promise<string | null> {
+/**
+ * Digest of jobs first seen in the last 24h — what the 07:00 report covered.
+ * Scholarships have no JobModel entries, so this is a graceful no-op (null)
+ * for that vertical — the group broadcast/dispatch cycle is scholarships'
+ * equivalent catch-up mechanism, not this post-join digest.
+ */
+export async function buildRecentDigest(vertical: 'jobs' | 'tenders' | 'scholarships' = 'jobs'): Promise<string | null> {
+  if (vertical === 'scholarships') return null;
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const jobs = await JobModel.find({ firstSeenAt: { $gte: since }, ...(vertical === 'jobs' ? { $or: [{ vertical: 'jobs' }, { vertical: { $exists: false } }] } : { vertical }) })
     .sort({ bankName: 1 })

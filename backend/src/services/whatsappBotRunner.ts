@@ -17,7 +17,13 @@ import { initializeTransaction, chargeMpesa } from './paystack';
 import { sendMessage as wahaSend, lidToPhone } from './waha';
 import { grantWhatsAppAccess } from './waFulfillment';
 
-type Vertical = 'jobs' | 'tenders';
+type Vertical = 'jobs' | 'tenders' | 'scholarships';
+
+const VERTICAL_LABEL: Record<Vertical, { emoji: string; noun: string }> = {
+  jobs: { emoji: '💼', noun: 'Job' },
+  tenders: { emoji: '📋', noun: 'Tender' },
+  scholarships: { emoji: '🎓', noun: 'Scholarship' }
+};
 type PendingState =
   | { kind: 'awaitVertical'; waBotId: string }
   | { kind: 'awaitPlanSelection'; waBotId: string; planIds: string[]; vertical: Vertical }
@@ -168,8 +174,10 @@ export class WhatsAppBotRunner {
         await this.showPlans(bot, waBotId, phone, from, send, 'jobs');
       } else if (choice === '2' || /tender/i.test(choice)) {
         await this.showPlans(bot, waBotId, phone, from, send, 'tenders');
+      } else if (choice === '3' || /scholarship/i.test(choice)) {
+        await this.showPlans(bot, waBotId, phone, from, send, 'scholarships');
       } else {
-        await send('Please reply *1* for Jobs or *2* for Tenders.');
+        await send('Please reply *1* for Jobs, *2* for Tenders or *3* for Scholarships.');
       }
       return;
     }
@@ -309,8 +317,8 @@ export class WhatsAppBotRunner {
     await this.setPending(`${waBotId}:${phone}`, { kind: 'awaitVertical', waBotId });
     await send(
       '👋 *Welcome to Wisdom Busara!*\n\nWhat are you looking for?\n\n' +
-      '*1.* 💼 Job alerts\n*2.* 📋 Tender alerts\n\n' +
-      'Reply *1* or *2*.\n\n_⭐ Premium members get both._'
+      '*1.* 💼 Job alerts\n*2.* 📋 Tender alerts\n*3.* 🎓 Scholarship alerts\n\n' +
+      'Reply *1*, *2* or *3*.\n\n_⭐ Premium members get Jobs + Tenders bundled — Scholarships is billed separately._'
     );
   }
 
@@ -372,9 +380,10 @@ export class WhatsAppBotRunner {
 
   private async showPlans(bot: any, waBotId: string, phone: string, from: string, send: (m: string) => Promise<void>, vertical: Vertical = 'jobs'): Promise<void> {
     const plans = await PlanModel.find({ isActive: true, $or: [{ vertical }, ...(vertical === 'jobs' ? [{ vertical: { $exists: false } }] : [])] }).sort({ amountKobo: 1 }).lean();
-    if (plans.length === 0) { await send(`No ${vertical} plans available right now. Check back soon!`); return; }
+    const { emoji, noun } = VERTICAL_LABEL[vertical];
+    if (plans.length === 0) { await send(`No ${noun.toLowerCase()} plans available right now. Check back soon!`); return; }
 
-    let msg = `${vertical === 'tenders' ? '📋' : '💼'} *${vertical === 'tenders' ? 'Tender' : 'Job'} alerts — choose a plan:*\n\n`;
+    let msg = `${emoji} *${noun} alerts — choose a plan:*\n\n`;
     plans.forEach((p, i) => {
       const desc = p.description ? ` — ${p.description}` : '';
       msg += `*${i + 1}.* ${p.name} (${p.amountKobo === 0 ? '🎁 FREE TRIAL' : fmt(p.amountKobo, p.currency)})${desc}\n`;

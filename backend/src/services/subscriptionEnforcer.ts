@@ -5,6 +5,7 @@ import { SubscriptionModel } from '../models/Subscription';
 import { decryptString } from '../utils/encryption';
 import { kickChatMember } from './telegramApi';
 import { removeFromGroup } from './waha';
+import { groupForVertical } from './waFulfillment';
 
 export class SubscriptionEnforcer {
   private timer: NodeJS.Timeout | null = null;
@@ -84,16 +85,26 @@ export class SubscriptionEnforcer {
     const participantJid = chatId || (phone ? `${phone}@c.us` : '');
     if (!participantJid) return;
 
-    // Don't kick if they have another active subscription for this bot
+    // Don't kick if they have another active subscription for THIS SAME
+    // vertical/group — an active Jobs subscription must never save someone
+    // from being removed from the Scholarships group (or vice versa); each
+    // vertical has its own group membership. Old jobs subscriptions predate
+    // the vertical field entirely, hence the $exists:false fallback.
+    const vertical: string = (sub as any).vertical ?? 'jobs';
+    const verticalMatch = vertical === 'jobs' ? [{ vertical: 'jobs' }, { vertical: { $exists: false } }] : [{ vertical }];
     const stillActive = await SubscriptionModel.exists({
       platform: 'whatsapp', waBotId: sub.waBotId,
-      $or: [{ whatsappChatId: chatId || undefined }, { whatsappPhone: phone || undefined }],
+      $and: [
+        { $or: [{ whatsappChatId: chatId || undefined }, { whatsappPhone: phone || undefined }] },
+        { $or: verticalMatch }
+      ],
       status: 'active', endsAt: { $gt: now }
     });
     if (stillActive) return;
 
     const apiKey = waBot.wahaApiKeyEnc ? decryptString(waBot.wahaApiKeyEnc) : undefined;
-    await removeFromGroup(waBot.wahaUrl, waBot.wahaSessionName, ((sub as any).vertical === 'tenders' && (waBot as any).tendersGroupId) ? (waBot as any).tendersGroupId : waBot.groupId, participantJid, apiKey);
-    logger.info({ waBotId: String(sub.waBotId), participantJid }, 'Removed expired WhatsApp subscriber from group');
+    const groupJid = groupForVertical(waBot, (sub as any).vertical);
+    await removeFromGroup(waBot.wahaUrl, waBot.wahaSessionName, groupJid, participantJid, apiKey);
+    logger.info({ waBotId: String(sub.waBotId), participantJid, vertical: (sub as any).vertical ?? 'jobs' }, 'Removed expired WhatsApp subscriber from group');
   }
 }

@@ -16,7 +16,7 @@ const subscriptionSchema = new Schema(
     waBotId: { type: Schema.Types.ObjectId, ref: 'WhatsAppBot', required: false },
     whatsappPhone: { type: String, required: false },
     whatsappChatId: { type: String, required: false }, // full JID for group add/remove
-    vertical: { type: String, required: false, enum: ['jobs', 'tenders'], default: 'jobs' }
+    vertical: { type: String, required: false, enum: ['jobs', 'tenders', 'scholarships'], default: 'jobs' }
   },
   { timestamps: true }
 );

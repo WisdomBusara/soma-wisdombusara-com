@@ -1,6 +1,8 @@
 import React from 'react';
 import { apiFetch } from '../api/client';
 
+type Vertical = 'jobs' | 'tenders' | 'scholarships';
+
 type Plan = {
   id: string;
   name: string;
@@ -11,7 +13,10 @@ type Plan = {
   description?: string;
   isActive: boolean;
   isTrial: boolean;
+  vertical?: Vertical;
 };
+
+const VERTICAL_LABEL: Record<Vertical, string> = { jobs: '💼 Jobs', tenders: '📋 Tenders', scholarships: '🎓 Scholarships' };
 
 function fmtMoney(kobo: number, currency: string) {
   const code = currency.toUpperCase();
@@ -26,7 +31,7 @@ function fmtDuration(mins: number) {
 }
 
 // Form holds whole currency units (KSh); backend stores minor units (×100)
-const DEFAULT_FORM = { name: '', durationMinutes: 1440, amountMajor: 100, currency: 'KES', videoUrl: '', description: '', isActive: true, isTrial: false };
+const DEFAULT_FORM = { name: '', durationMinutes: 1440, amountMajor: 100, currency: 'KES', videoUrl: '', description: '', isActive: true, isTrial: false, vertical: 'jobs' as Vertical };
 
 export function PlansPage() {
   const [plans, setPlans] = React.useState<Plan[]>([]);
@@ -112,6 +117,14 @@ export function PlansPage() {
               <option value="USD">USD</option>
             </select>
           </div>
+          <div className="form-field">
+            <label className="form-label">Vertical — which WhatsApp bot menu offers this plan</label>
+            <select className="input" value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value as Vertical })}>
+              <option value="jobs">💼 Jobs</option>
+              <option value="tenders">📋 Tenders</option>
+              <option value="scholarships">🎓 Scholarships</option>
+            </select>
+          </div>
           <div className="form-field" style={{ gridColumn: '1 / -1' }}>
             <label className="form-label">Video URL — subscribers receive this after payment</label>
             <input className="input" placeholder="https://drive.google.com/..." value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} />
@@ -139,6 +152,7 @@ export function PlansPage() {
         <thead>
           <tr>
             <th>Name</th>
+            <th>Vertical</th>
             <th>Duration</th>
             <th>Price</th>
             <th>Video URL</th>
@@ -154,6 +168,7 @@ export function PlansPage() {
                   <div style={{ fontWeight: 600 }}>{p.name}</div>
                   {p.description && <div className="muted" style={{ fontSize: 12 }}>{p.description}</div>}
                 </td>
+                <td className="muted">{VERTICAL_LABEL[p.vertical ?? 'jobs']}</td>
                 <td className="muted">{fmtDuration(p.durationMinutes)}</td>
                 <td>{fmtMoney(p.amountKobo, p.currency)}</td>
                 <td>
@@ -176,7 +191,7 @@ export function PlansPage() {
               </tr>
               {editing?.id === p.id && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="card" style={{ margin: 0 }}>
                       <div className="form-grid">
                         <div className="form-field">
@@ -228,7 +243,7 @@ export function PlansPage() {
             </React.Fragment>
           ))}
           {plans.length === 0 && (
-            <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 32 }}>No plans yet</td></tr>
+            <tr><td colSpan={7} className="muted" style={{ textAlign: 'center', padding: 32 }}>No plans yet</td></tr>
           )}
         </tbody>
       </table>

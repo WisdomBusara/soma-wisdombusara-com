@@ -4,8 +4,14 @@ import { Schema, model, type InferSchemaType } from 'mongoose';
  * Scholarship delivery subscriber.
  *
  * After a reader pays, they choose how they want new scholarships delivered:
- * email, Telegram, and/or WhatsApp. This record captures that choice and is
- * what the delivery dispatcher reads when new scholarships land.
+ * email and/or Telegram, individually. WhatsApp is deliberately NOT one of
+ * these per-subscriber push channels — a paid WhatsApp payer is instead added
+ * directly to the shared WhatsApp group (see waFulfillment/provisionDeliveryOnGrant),
+ * and new scholarships reach them via the group broadcast, never an individual
+ * DM. Messaging many individual numbers on a recurring schedule from one WAHA
+ * session is exactly the pattern that risks a WhatsApp ban; group posts don't
+ * carry that risk. `whatsappPhone` below is retained purely for group
+ * add/remove — it is not a delivery channel choice.
  *
  * Deliberately separate from ScholarshipAccess (the paywall grant): access
  * governs *reading the site*, this governs *push delivery*. A reader can have
@@ -13,7 +19,7 @@ import { Schema, model, type InferSchemaType } from 'mongoose';
  * independently.
  */
 
-export const DELIVERY_CHANNELS = ['email', 'telegram', 'whatsapp'] as const;
+export const DELIVERY_CHANNELS = ['email', 'telegram'] as const;
 export type DeliveryChannel = (typeof DELIVERY_CHANNELS)[number];
 
 const subscriberSchema = new Schema(

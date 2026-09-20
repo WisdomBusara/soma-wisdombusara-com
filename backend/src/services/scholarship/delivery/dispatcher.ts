@@ -4,7 +4,7 @@ import { ScholarshipModel } from '../../../models/scholarship/Scholarship';
 import { ScholarshipAccessModel } from '../../../models/scholarship/access';
 import { SubscriberModel, DeliveryLogModel } from '../../../models/scholarship/subscriber';
 import { sendScholarshipEmail, emailConfigured, type EmailScholarship } from './email';
-import { sendWhatsAppToPhone, broadcastToGroup, whatsappConfigured } from './whatsapp';
+import { broadcastToGroup, whatsappConfigured } from './whatsapp';
 import { sendTelegram, broadcastToChannel, telegramConfigured } from './telegram';
 
 /**
@@ -12,12 +12,14 @@ import { sendTelegram, broadcastToChannel, telegramConfigured } from './telegram
  *
  * Runs after each crawl cycle. For every active subscriber, it finds
  * scholarships they have not yet received (matching their filters), and sends
- * them on each channel they chose. A per-(subscriber, scholarship, channel)
- * unique log row guarantees nothing is ever sent twice.
+ * them on each channel they chose (email, Telegram — see subscriber.ts on why
+ * WhatsApp is not an individual-DM channel here). A per-(subscriber,
+ * scholarship, channel) unique log row guarantees nothing is ever sent twice.
  *
  * Also supports GROUP broadcast: if a WhatsApp group or Telegram channel is
  * configured, new scholarships post there once per batch — this is the "paid
- * members are in the group, new scholarships appear" model.
+ * members are in the group, new scholarships appear" model, and it's the
+ * *only* WhatsApp delivery path (no per-subscriber WhatsApp DMs).
  *
  * Delivery is best-effort and isolated: one subscriber's failure, or one
  * channel being down, never stops the others.
@@ -47,7 +49,6 @@ function subscriberFilter(sub: any): Record<string, unknown> {
 export interface DispatchSummary {
   subscribers: number;
   emailsSent: number;
-  whatsappSent: number;
   telegramSent: number;
   groupBroadcast: boolean;
   telegramBroadcast: boolean;
@@ -75,7 +76,6 @@ export async function dispatchDeliveries(
   const summary: DispatchSummary = {
     subscribers: 0,
     emailsSent: 0,
-    whatsappSent: 0,
     telegramSent: 0,
     groupBroadcast: false,
     telegramBroadcast: false,
@@ -171,12 +171,6 @@ export async function dispatchDeliveries(
         if (r.ok) summary.emailsSent += 1; else summary.failures += 1;
       }
 
-      if (channels.includes('whatsapp') && sub.whatsappPhone && (await whatsappConfigured())) {
-        const r = await sendWhatsAppToPhone(sub.whatsappPhone, shaped);
-        await logDeliveries(sub._id, fresh, 'whatsapp', r);
-        if (r.ok) summary.whatsappSent += 1; else summary.failures += 1;
-      }
-
       if (channels.includes('telegram') && sub.telegramChatId && telegramConfigured()) {
         const r = await sendTelegram(sub.telegramChatId, shaped);
         await logDeliveries(sub._id, fresh, 'telegram', r);
@@ -201,7 +195,7 @@ export async function dispatchDeliveries(
 async function logDeliveries(
   subscriberId: any,
   scholarships: any[],
-  channel: 'email' | 'whatsapp' | 'telegram',
+  channel: 'email' | 'telegram',
   result: { ok: boolean; error?: string }
 ): Promise<void> {
   const rows = scholarships.map((s) => ({

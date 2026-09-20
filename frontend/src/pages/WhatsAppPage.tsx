@@ -578,7 +578,6 @@ function ReportCard({ vertical, onError, onNotify }: { vertical: 'jobs' | 'tende
 type ScholarshipDeliverySummary = {
   subscribers: number;
   emailsSent: number;
-  whatsappSent: number;
   telegramSent: number;
   groupBroadcast: boolean;
   telegramBroadcast: boolean;
@@ -597,7 +596,7 @@ function ScholarshipReportCard({ onError, onNotify }: { onError: (m: string | nu
       onNotify(
         `Scholarship report sent — WhatsApp group ${r.summary.groupBroadcast ? 'posted' : 'nothing new'}, ` +
         `Telegram channel ${r.summary.telegramBroadcast ? 'posted' : 'nothing new'}, ` +
-        `${r.summary.whatsappSent} subscriber WhatsApp, ${r.summary.telegramSent} subscriber Telegram, ${r.summary.emailsSent} email`
+        `${r.summary.telegramSent} subscriber Telegram, ${r.summary.emailsSent} email`
       );
     } catch (err: any) { onError(String(err?.message ?? 'Failed to send scholarship report')); }
     finally { setBusy(false); }
@@ -608,16 +607,16 @@ function ScholarshipReportCard({ onError, onNotify }: { onError: (m: string | nu
       <div className="card-title">🎓 Daily Scholarship Report</div>
       <p className="muted" style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
         Posts open/closing-soon scholarships that haven't been broadcast yet to the Scholarships
-        WhatsApp group and Telegram channel, plus email/WhatsApp/Telegram to individual
-        subscribers. Each scholarship goes out exactly once per channel, whenever it first becomes
-        eligible — regardless of when it was originally discovered — so clicking this repeatedly
-        is safe and won't repost the same batch.
+        WhatsApp group and Telegram channel, plus email/Telegram to individual subscribers.
+        WhatsApp is group-only — no individual WhatsApp DMs — to avoid the ban risk of bulk
+        messaging from one number. Each scholarship goes out exactly once per channel, whenever it
+        first becomes eligible, so clicking this repeatedly is safe and won't repost the same batch.
       </p>
       {last && (
         <div style={{ marginBottom: 16, padding: '12px 14px', border: '1px solid var(--border, #2a2a2a)', borderRadius: 8, fontSize: 13 }}>
           ✅ Last send: WA group {last.groupBroadcast ? 'posted' : 'nothing new'} · Telegram channel{' '}
-          {last.telegramBroadcast ? 'posted' : 'nothing new'} · {last.whatsappSent} subscriber WhatsApp ·{' '}
-          {last.telegramSent} subscriber Telegram · {last.emailsSent} email · {last.subscribers} subscriber(s) checked
+          {last.telegramBroadcast ? 'posted' : 'nothing new'} · {last.telegramSent} subscriber Telegram ·{' '}
+          {last.emailsSent} email · {last.subscribers} subscriber(s) checked
           {last.failures > 0 && <span className="error" style={{ marginLeft: 8 }}>{last.failures} failure(s)</span>}
         </div>
       )}

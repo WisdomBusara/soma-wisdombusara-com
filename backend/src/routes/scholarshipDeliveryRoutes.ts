@@ -32,22 +32,17 @@ import { toEmailShape } from '../services/scholarship/delivery/dispatcher';
  * Mounted under the public /api router (inherits its CORS + cookies).
  */
 
-const KENYAN_PHONE = /^(?:\+?254|0)?(7\d{8}|1\d{8})$/;
-function normalizePhone(raw: string): string | null {
-  const m = KENYAN_PHONE.exec(String(raw ?? '').replace(/[^\d+]/g, ''));
-  return m ? `254${m[1]}` : null;
-}
-
 export function scholarshipDeliveryRouter() {
   const router = Router();
   const limiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false });
 
   // ── Subscribe to delivery ───────────────────────────────────────────────────
+  // WhatsApp is deliberately not a selectable channel here — see subscriber.ts.
+  // A WhatsApp payer is added to the shared group at payment time instead.
   const subscribeSchema = z.object({
     channels: z.array(z.enum(DELIVERY_CHANNELS)).min(1),
     email: z.string().email().max(160).optional(),
     telegramHandle: z.string().max(64).optional(),
-    whatsappPhone: z.string().max(20).optional(),
     countries: z.array(z.string().length(2)).max(20).optional(),
     degreeLevels: z.array(z.string().max(30)).max(10).optional(),
     fundingOnly: z.boolean().optional()
@@ -64,14 +59,8 @@ export function scholarshipDeliveryRouter() {
       const body = subscribeSchema.parse(req.body ?? {});
 
       // Validate addresses for the chosen channels.
-      let whatsappPhone: string | undefined;
       if (body.channels.includes('email') && !body.email) {
         return res.status(400).json({ error: 'email_required', message: 'An email address is needed for email delivery.' });
-      }
-      if (body.channels.includes('whatsapp')) {
-        const n = body.whatsappPhone ? normalizePhone(body.whatsappPhone) : null;
-        if (!n) return res.status(400).json({ error: 'invalid_phone', message: 'Enter a valid Kenyan WhatsApp number.' });
-        whatsappPhone = n;
       }
 
       // A short code the user sends to the Telegram bot to link their chat.
@@ -89,7 +78,6 @@ export function scholarshipDeliveryRouter() {
             channels: body.channels,
             email: body.email?.toLowerCase(),
             telegramHandle: connectCode ? connectCode : body.telegramHandle, // store code as the pending link key
-            whatsappPhone,
             countries: body.countries ?? [],
             degreeLevels: body.degreeLevels ?? [],
             fundingOnly: body.fundingOnly ?? false,

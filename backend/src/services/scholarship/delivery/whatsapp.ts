@@ -85,20 +85,11 @@ function renderMessage(scholarships: EmailScholarship[], siteUrl: string): strin
 }
 
 /**
- * Send to a chat id. For an individual: '2547XXXXXXXX@c.us'. For a group:
- * 'XXXXXXXXXXXX@g.us'. This helper builds the individual form from a phone.
+ * Send a scholarship batch to a chat id — the group JID normally, since
+ * per-subscriber individual WhatsApp DMs are intentionally not a delivery
+ * path (see subscriber.ts). Kept general (not group-only) in case a future
+ * caller needs it, but nothing currently sends to an individual phone here.
  */
-export async function sendWhatsAppToPhone(
-  phone: string,
-  scholarships: EmailScholarship[]
-): Promise<{ ok: boolean; error?: string }> {
-  const bot = await getActiveBot();
-  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
-  if (scholarships.length === 0) return { ok: true };
-  const chatId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
-  return sendWhatsAppToChat(chatId, scholarships, bot);
-}
-
 export async function sendWhatsAppToChat(
   chatId: string,
   scholarships: EmailScholarship[],

@@ -466,9 +466,11 @@ async function provisionDeliveryOnGrant(opts: {
   const phone = opts.phone;
   const telegramEnabled = telegramConfigured() && Boolean(env.SCHOLARSHIP_TELEGRAM_CHANNEL);
 
+  // WhatsApp is intentionally not a per-subscriber push channel — a WhatsApp
+  // payer instead gets added directly to the shared group below, and receives
+  // new scholarships via the group broadcast, never an individual DM.
   const channels: DeliveryChannel[] = [];
   if (realEmail) channels.push('email');
-  if (phone) channels.push('whatsapp');
   if (telegramEnabled) channels.push('telegram');
 
   let sub = null;

@@ -556,7 +556,7 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
 
   router.patch('/wa-bots/:id', async (req, res, next) => {
     try {
-      const { name, wahaUrl, wahaSessionName, wahaApiKey, groupId, jobReportGroupId, tendersGroupId, isActive } = req.body;
+      const { name, wahaUrl, wahaSessionName, wahaApiKey, groupId, jobReportGroupId, tendersGroupId, scholarshipGroupId, isActive } = req.body;
       const update: any = {};
       if (name !== undefined) update.name = name;
       if (wahaUrl !== undefined) update.wahaUrl = wahaUrl;
@@ -565,6 +565,7 @@ export function adminRouter(deps?: { botRunner?: BotRunner }) {
       if (groupId !== undefined) update.groupId = groupId;
       if (jobReportGroupId !== undefined) update.jobReportGroupId = jobReportGroupId;
       if (tendersGroupId !== undefined) update.tendersGroupId = tendersGroupId;
+      if (scholarshipGroupId !== undefined) update.scholarshipGroupId = scholarshipGroupId;
       if (isActive !== undefined) update.isActive = Boolean(isActive);
       logger.info({ botId: req.params.id, update: { ...update, wahaApiKeyEnc: update.wahaApiKeyEnc ? '[encrypted]' : undefined } }, 'PATCH wa-bot');
       const bot = await WhatsAppBotModel.findByIdAndUpdate(req.params.id, { $set: update }, { new: true }).lean();

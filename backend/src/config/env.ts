@@ -100,10 +100,10 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
-  WAHA_URL: z.string().optional(),
-  WAHA_API_KEY: z.string().optional(),
-  WAHA_SESSION: z.string().optional(),
-  WAHA_GROUP_ID: z.string().optional(),
+  // Scholarship WhatsApp delivery now reuses the active WhatsAppBot DB record
+  // (same connected session as Jobs/Tenders — see models/WhatsAppBot.ts's
+  // scholarshipGroupId) rather than its own WAHA_URL/WAHA_API_KEY/WAHA_SESSION/
+  // WAHA_GROUP_ID env vars. No new vars needed here.
   SCHOLARSHIP_TELEGRAM_BOT_TOKEN: z.string().optional(),
   SCHOLARSHIP_TELEGRAM_BOT_USERNAME: z.string().optional(),
   // The private members-only group: broadcasts land here (existing behaviour)

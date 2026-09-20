@@ -1,42 +1,64 @@
 import { env } from '../../../config/env';
 import { logger } from '../../../config/logger';
+import { WhatsAppBotModel } from '../../../models/WhatsAppBot';
+import { decryptString } from '../../../utils/encryption';
 import type { EmailScholarship } from './email';
 
 /**
- * WhatsApp delivery channel via WAHA (WhatsApp HTTP API).
+ * WhatsApp delivery channel for the scholarships vertical, via WAHA.
  *
- * Sends to individual numbers OR a group, through a self-hosted WAHA instance.
- * Configured via env: WAHA_URL, WAHA_API_KEY, WAHA_SESSION (default 'default').
+ * Reuses the SAME connected WAHA session as the Jobs/Tenders bot managed in
+ * the admin panel — one phone number, one QR-scan flow — rather than a
+ * second, separately-configured session. `scholarshipGroupId` on the active
+ * WhatsAppBot record is the destination group for scholarship broadcasts and
+ * paid-member adds; `groupId`/`tendersGroupId` on that same record drive
+ * Jobs/Tenders (see jobScheduler.ts, waFulfillment.ts). Previously this
+ * module pointed at its own WAHA_URL/WAHA_API_KEY/WAHA_SESSION/WAHA_GROUP_ID
+ * env vars — an entirely separate, admin-panel-invisible WAHA session that
+ * had to be reconnected and configured by hand.
  *
  * IMPORTANT OPERATIONAL NOTE: WAHA uses the unofficial WhatsApp Web protocol.
- * WhatsApp may ban numbers used for automation. This channel only works while a
- * WhatsApp number is successfully linked to the WAHA session. If the session is
- * not WORKING, sends fail gracefully and are logged — they do not crash
- * delivery to other channels.
+ * WhatsApp may ban numbers used for automation. This channel only works while
+ * the linked number's WAHA session is WORKING. If it is not, sends fail
+ * gracefully and are logged — they do not crash delivery to other channels.
  */
 
-function configured(): boolean {
-  return Boolean(env.WAHA_URL && env.WAHA_API_KEY);
+interface ActiveBot {
+  wahaUrl: string;
+  wahaSessionName: string;
+  apiKey?: string;
+  scholarshipGroupId?: string;
 }
 
-export function whatsappConfigured(): boolean {
-  return configured();
+async function getActiveBot(): Promise<ActiveBot | null> {
+  const bot = await WhatsAppBotModel.findOne({ isActive: true }).lean();
+  if (!bot) return null;
+  return {
+    wahaUrl: bot.wahaUrl,
+    wahaSessionName: bot.wahaSessionName,
+    apiKey: bot.wahaApiKeyEnc ? decryptString(bot.wahaApiKeyEnc) : undefined,
+    scholarshipGroupId: bot.scholarshipGroupId || undefined
+  };
 }
 
-async function wahaFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const url = `${env.WAHA_URL!.replace(/\/$/, '')}${path}`;
+export async function whatsappConfigured(): Promise<boolean> {
+  return (await getActiveBot()) !== null;
+}
+
+async function wahaFetch(bot: ActiveBot, path: string, init: RequestInit = {}): Promise<Response> {
+  const url = `${bot.wahaUrl.replace(/\/$/, '')}${path}`;
   const headers = new Headers(init.headers ?? {});
-  headers.set('X-Api-Key', env.WAHA_API_KEY!);
+  if (bot.apiKey) headers.set('X-Api-Key', bot.apiKey);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   return fetch(url, { ...init, headers });
 }
 
 /** Is the WhatsApp session actually linked and working? */
 export async function whatsappSessionWorking(): Promise<boolean> {
-  if (!configured()) return false;
-  const session = env.WAHA_SESSION ?? 'default';
+  const bot = await getActiveBot();
+  if (!bot) return false;
   try {
-    const res = await wahaFetch(`/api/sessions/${session}`);
+    const res = await wahaFetch(bot, `/api/sessions/${bot.wahaSessionName}`);
     if (!res.ok) return false;
     const data = (await res.json()) as { status?: string };
     return data.status === 'WORKING';
@@ -70,27 +92,29 @@ export async function sendWhatsAppToPhone(
   phone: string,
   scholarships: EmailScholarship[]
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
+  const bot = await getActiveBot();
+  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
   if (scholarships.length === 0) return { ok: true };
   const chatId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
-  return sendWhatsAppToChat(chatId, scholarships);
+  return sendWhatsAppToChat(chatId, scholarships, bot);
 }
 
 export async function sendWhatsAppToChat(
   chatId: string,
-  scholarships: EmailScholarship[]
+  scholarships: EmailScholarship[],
+  preloadedBot?: ActiveBot
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
+  const bot = preloadedBot ?? (await getActiveBot());
+  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
   if (scholarships.length === 0) return { ok: true };
 
-  const session = env.WAHA_SESSION ?? 'default';
   const siteUrl = (env.SCHOLARSHIP_SITE_URL ?? '').replace(/\/$/, '');
   const text = renderMessage(scholarships, siteUrl);
 
   try {
-    const res = await wahaFetch('/api/sendText', {
+    const res = await wahaFetch(bot, '/api/sendText', {
       method: 'POST',
-      body: JSON.stringify({ session, chatId, text })
+      body: JSON.stringify({ session: bot.wahaSessionName, chatId, text })
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
@@ -105,17 +129,19 @@ export async function sendWhatsAppToChat(
 }
 
 /**
- * Broadcast one batch to the configured WhatsApp GROUP, if one is set via
- * WAHA_GROUP_ID. This is the "paid members get added to the group" delivery
- * path — you add paying members to the group, and new scholarships post there.
+ * Broadcast one batch to the configured scholarships WhatsApp GROUP, if one
+ * is set. This is the "paid members get added to the group" delivery path —
+ * you add paying members to the group, and new scholarships post there.
  */
 export async function broadcastToGroup(scholarships: EmailScholarship[]): Promise<{ ok: boolean; error?: string }> {
-  if (!env.WAHA_GROUP_ID) return { ok: false, error: 'no_group_configured' };
-  return sendWhatsAppToChat(env.WAHA_GROUP_ID, scholarships);
+  const bot = await getActiveBot();
+  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
+  if (!bot.scholarshipGroupId) return { ok: false, error: 'no_group_configured' };
+  return sendWhatsAppToChat(bot.scholarshipGroupId, scholarships, bot);
 }
 
 /**
- * Add a paying member directly into the configured WhatsApp group.
+ * Add a paying member directly into the configured scholarships WhatsApp group.
  *
  * Best-effort: WhatsApp lets a person restrict who can add them to groups, in
  * which case this fails even with a correctly configured session, so callers
@@ -123,14 +149,14 @@ export async function broadcastToGroup(scholarships: EmailScholarship[]): Promis
  * the only path to "joined the group".
  */
 export async function addToGroup(phone: string): Promise<{ ok: boolean; error?: string }> {
-  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
-  if (!env.WAHA_GROUP_ID) return { ok: false, error: 'no_group_configured' };
+  const bot = await getActiveBot();
+  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
+  if (!bot.scholarshipGroupId) return { ok: false, error: 'no_group_configured' };
 
-  const session = env.WAHA_SESSION ?? 'default';
   const participantId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
 
   try {
-    const res = await wahaFetch(`/api/${session}/groups/${encodeURIComponent(env.WAHA_GROUP_ID)}/participants/add`, {
+    const res = await wahaFetch(bot, `/api/${bot.wahaSessionName}/groups/${encodeURIComponent(bot.scholarshipGroupId)}/participants/add`, {
       method: 'POST',
       body: JSON.stringify({ participants: [participantId] })
     });
@@ -148,13 +174,13 @@ export async function addToGroup(phone: string): Promise<{ ok: boolean; error?: 
 
 /** A plain text message to one number — used for the post-payment welcome. */
 export async function sendWhatsAppText(phone: string, text: string): Promise<{ ok: boolean; error?: string }> {
-  if (!configured()) return { ok: false, error: 'whatsapp_not_configured' };
-  const session = env.WAHA_SESSION ?? 'default';
+  const bot = await getActiveBot();
+  if (!bot) return { ok: false, error: 'whatsapp_not_configured' };
   const chatId = phone.includes('@') ? phone : `${phone.replace(/\D/g, '')}@c.us`;
   try {
-    const res = await wahaFetch('/api/sendText', {
+    const res = await wahaFetch(bot, '/api/sendText', {
       method: 'POST',
-      body: JSON.stringify({ session, chatId, text })
+      body: JSON.stringify({ session: bot.wahaSessionName, chatId, text })
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');

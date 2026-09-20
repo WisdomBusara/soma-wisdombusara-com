@@ -89,7 +89,7 @@ export async function dispatchDeliveries(
 
   if (recent.length > 0 && !opts.dryRun) {
     const shaped = recent.map(toEmailShape);
-    if (env.WAHA_GROUP_ID && whatsappConfigured()) {
+    if (await whatsappConfigured()) {
       const r = await broadcastToGroup(shaped).catch(() => ({ ok: false }));
       if (r.ok) summary.groupBroadcast = true;
     }
@@ -147,7 +147,7 @@ export async function dispatchDeliveries(
         if (r.ok) summary.emailsSent += 1; else summary.failures += 1;
       }
 
-      if (channels.includes('whatsapp') && sub.whatsappPhone && whatsappConfigured()) {
+      if (channels.includes('whatsapp') && sub.whatsappPhone && (await whatsappConfigured())) {
         const r = await sendWhatsAppToPhone(sub.whatsappPhone, shaped);
         await logDeliveries(sub._id, fresh, 'whatsapp', r);
         if (r.ok) summary.whatsappSent += 1; else summary.failures += 1;

@@ -8,6 +8,7 @@ type WABot = {
   wahaSessionName: string;
   groupId: string;
   tendersGroupId?: string;
+  scholarshipGroupId?: string;
   isActive: boolean;
   webhookSecret: string;
   createdAt: string;
@@ -54,6 +55,7 @@ export function WhatsAppPage() {
   const [showGroups, setShowGroups] = React.useState(false);
   const [editGroupId, setEditGroupId] = React.useState('');
   const [editTendersGroupId, setEditTendersGroupId] = React.useState('');
+  const [editScholarshipGroupId, setEditScholarshipGroupId] = React.useState('');
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
 
@@ -105,6 +107,7 @@ export function WhatsAppPage() {
     setShowGroups(false);
     setEditGroupId(bot.groupId);
     setEditTendersGroupId((bot as any).tendersGroupId ?? '');
+    setEditScholarshipGroupId((bot as any).scholarshipGroupId ?? '');
     startPolling(bot._id);
     try {
       const data = await apiFetch<{ webhookUrl: string }>(`/admin/wa-bots/${bot._id}/webhook-url`);
@@ -129,6 +132,16 @@ export function WhatsAppPage() {
     try {
       await apiFetch(`/admin/wa-bots/${selectedId}`, { method: 'PATCH', body: JSON.stringify({ tendersGroupId: editTendersGroupId }) });
       notify('Tenders group saved');
+      await load();
+    } catch (err: any) { setError(String(err?.message ?? 'Failed to save')); }
+  };
+
+  const saveScholarshipGroupId = async () => {
+    if (!selectedId) return;
+    setError(null);
+    try {
+      await apiFetch(`/admin/wa-bots/${selectedId}`, { method: 'PATCH', body: JSON.stringify({ scholarshipGroupId: editScholarshipGroupId }) });
+      notify('Scholarships group saved');
       await load();
     } catch (err: any) { setError(String(err?.message ?? 'Failed to save')); }
   };
@@ -366,6 +379,17 @@ export function WhatsAppPage() {
                     onChange={(e) => setEditTendersGroupId(e.target.value)}
                   />
                   <button className="btn secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={saveTendersGroupId}>Save</button>
+                </div>
+                <div className="form-label" style={{ marginBottom: 8, marginTop: 12 }}>🎓 Scholarships Group ID <span className="muted" style={{fontWeight:400}}>(same session, separate group)</span></div>
+                <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+                  <input
+                    className="input"
+                    style={{ flex: 1, fontSize: 12 }}
+                    placeholder="120363xxx@g.us"
+                    value={editScholarshipGroupId}
+                    onChange={(e) => setEditScholarshipGroupId(e.target.value)}
+                  />
+                  <button className="btn secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={saveScholarshipGroupId}>Save</button>
                 </div>
                 <button
                   className="btn ghost"

@@ -278,7 +278,7 @@ export function scholarshipAccessRouter() {
           message: 'No WhatsApp number is on file for this payment — email support@wisdombusara.com instead.'
         });
       }
-      if (!whatsappConfigured()) {
+      if (!(await whatsappConfigured())) {
         return res.status(503).json({
           error: 'whatsapp_unavailable',
           message: 'WhatsApp delivery is not available right now — email support@wisdombusara.com instead.'
@@ -505,7 +505,7 @@ async function provisionDeliveryOnGrant(opts: {
     }).catch(() => undefined);
   }
 
-  if (phone && whatsappConfigured()) {
+  if (phone && (await whatsappConfigured())) {
     // The restore code goes out here unconditionally — it must reach the payer
     // whether or not the group-add succeeds, since M-Pesa payers rarely give a
     // real email and this text is otherwise the only durable copy they get.

@@ -169,7 +169,10 @@ export async function startSession(
   // webhook-less, or the bot silently stops responding until someone
   // remembers to click "Configure Webhook" by hand.
   const body: Record<string, unknown> = { name: session, start: true };
-  if (webhookUrl) body.config = { webhooks: [{ url: webhookUrl, events: ['message', 'message.any'] }] };
+  // Only 'message' — 'message.any' is a broader, overlapping event category
+  // that WAHA also fires for a plain incoming message, so subscribing to
+  // both delivers the same message twice and double-processes every reply.
+  if (webhookUrl) body.config = { webhooks: [{ url: webhookUrl, events: ['message'] }] };
   await c.post('/api/sessions', body);
 }
 
@@ -183,14 +186,14 @@ export async function configureWebhook(
   // Try the sessions config endpoint (WAHA v2+)
   try {
     await c.put(`/api/sessions/${encodeURIComponent(session)}/config`, {
-      webhooks: [{ url: webhookUrl, events: ['message', 'message.any'] }]
+      webhooks: [{ url: webhookUrl, events: ['message'] }]
     });
     return;
   } catch { /* fall through to legacy endpoint */ }
   // Fallback for older WAHA builds
   await c.put(`/api/${encodeURIComponent(session)}/config/webhooks`, {
     url: webhookUrl,
-    events: ['message', 'message.any']
+    events: ['message']
   });
 }
 

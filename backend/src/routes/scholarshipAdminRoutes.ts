@@ -22,6 +22,15 @@ import { AdSlotModel, AD_PLACEMENTS, ScholarshipAccessModel } from '../models/sc
 import { getScholarshipBotStatus } from '../services/scholarship/delivery/telegram';
 import { recordReviewFeedback, learnFromFeedback, getLearningSnapshot } from '../services/scholarship/learning';
 import { dispatchDeliveries } from '../services/scholarship/delivery/dispatcher';
+import {
+  EXPORT_CONTENT_TYPES,
+  EXPORT_FORMATS,
+  buildScholarshipFilter,
+  exportFilename,
+  loadScholarshipsForExport,
+  renderScholarshipExport,
+  scholarshipFilterQuery
+} from '../services/scholarship/export';
 
 /**
  * Scholarship admin surface (§32, §33, §34, §61).
@@ -62,31 +71,12 @@ export function scholarshipAdminRouter() {
 
   router.get('/scholarships', async (req, res, next) => {
     try {
-      const q = z.object({
-        status: z.string().optional(),
-        reviewStatus: z.string().optional(),
-        country: z.string().optional(),
-        university: z.string().optional(),
-        degree: z.string().optional(),
-        minConfidence: z.coerce.number().min(0).max(1).optional(),
-        maxConfidence: z.coerce.number().min(0).max(1).optional(),
-        q: z.string().max(200).optional(),
+      const q = scholarshipFilterQuery.extend({
         page: z.coerce.number().int().min(1).default(1),
         limit: z.coerce.number().int().min(1).max(100).default(25)
       }).parse(req.query);
 
-      const filter: Record<string, any> = {};
-      if (q.status) filter.status = { $in: q.status.split(',') };
-      if (q.reviewStatus) filter.reviewStatus = { $in: q.reviewStatus.split(',') };
-      if (q.country) filter.countryCode = { $in: q.country.split(',').map((c) => c.toUpperCase()) };
-      if (q.university && objectId(q.university)) filter.universityId = q.university;
-      if (q.degree) filter.degreeLevels = { $in: q.degree.split(',').map((d) => d.toUpperCase()) };
-      if (q.minConfidence !== undefined || q.maxConfidence !== undefined) {
-        filter.confidence = {};
-        if (q.minConfidence !== undefined) filter.confidence.$gte = q.minConfidence;
-        if (q.maxConfidence !== undefined) filter.confidence.$lte = q.maxConfidence;
-      }
-      if (q.q) filter.$text = { $search: q.q };
+      const filter = buildScholarshipFilter(q);
 
       const [rows, total] = await Promise.all([
         ScholarshipModel.find(filter)
@@ -122,6 +112,27 @@ export function scholarshipAdminRouter() {
         })),
         pagination: { page: q.page, limit: q.limit, total, totalPages: Math.ceil(total / q.limit) }
       });
+    } catch (err) { return next(err); }
+  });
+
+  /**
+   * Spreadsheet download of every scholarship matching the list filters above
+   * (not just the current page), soonest deadline first. Registered before the
+   * `:id` route so Express doesn't treat "export" as an id.
+   */
+  router.get('/scholarships/export', async (req, res, next) => {
+    try {
+      const q = scholarshipFilterQuery.extend({
+        format: z.enum(EXPORT_FORMATS).default('xlsx')
+      }).parse(req.query);
+
+      const { rows } = await loadScholarshipsForExport(buildScholarshipFilter(q));
+      const file = renderScholarshipExport(rows, q.format);
+
+      res.setHeader('Content-Type', EXPORT_CONTENT_TYPES[q.format]);
+      res.setHeader('Content-Disposition', `attachment; filename="${exportFilename(q.format)}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(file);
     } catch (err) { return next(err); }
   });
 

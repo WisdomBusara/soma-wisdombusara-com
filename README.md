@@ -62,6 +62,15 @@ npm run scholarships:status
 Every command supports `--dry-run`, which does all the fetching and
 classification and writes nothing.
 
+To get the scholarships into a spreadsheet, use **Export Excel / Export CSV**
+on the admin Scholarships tab (exports every match for the current filters,
+soonest deadline first), or from the CLI:
+
+```bash
+npm run scholarships:export -- --status=OPEN,CLOSING_SOON,UPCOMING               # .xlsx
+npm run scholarships:export -- --format=csv --countries=GB --degree=MASTERS --out=uk.csv
+```
+
 ---
 
 ## Routes

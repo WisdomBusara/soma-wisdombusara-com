@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { connectMongo } from '../db/mongo';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
@@ -19,6 +21,10 @@ import { ensureScholarshipIndexes } from '../services/scholarship/indexes';
 import { seedsForCountries } from '../services/scholarship/seeds/universities';
 import { activeCountries } from '../services/scholarship/seeds/countries';
 import { cleanupExpiredScholarships, reportNewDiscoveries } from '../services/scholarship/cleanup';
+import {
+  EXPORT_FORMATS, type ExportFormat, buildScholarshipFilter, exportFilename,
+  loadScholarshipsForExport, renderScholarshipExport
+} from '../services/scholarship/export';
 
 /**
  * Operations CLI (§50, §51).
@@ -35,6 +41,7 @@ import { cleanupExpiredScholarships, reportNewDiscoveries } from '../services/sc
  *   npm run scholarships:verify               -- --scholarship=<id>
  *   npm run scholarships:status
  *   npm run scholarships:seed                 -- --countries=KE
+ *   npm run scholarships:export               -- --status=OPEN,CLOSING_SOON --format=csv
  */
 
 interface Args {
@@ -278,6 +285,23 @@ async function cmdDiscoveryReport(args: Args): Promise<void> {
   out('DISCOVERY REPORT', result);
 }
 
+async function cmdExport(args: Args): Promise<void> {
+  const format = (str(args.format) ?? 'xlsx').toLowerCase() as ExportFormat;
+  if (!EXPORT_FORMATS.includes(format)) throw new Error(`--format must be one of: ${EXPORT_FORMATS.join(', ')}`);
+
+  const { rows, truncated } = await loadScholarshipsForExport(buildScholarshipFilter({
+    status: list(args.status)?.join(','),
+    reviewStatus: list(args.review)?.join(','),
+    country: list(args.countries)?.join(','),
+    degree: list(args.degree)?.join(','),
+    university: str(args.university)
+  }));
+
+  const path = resolve(str(args.out) ?? exportFilename(format));
+  writeFileSync(path, renderScholarshipExport(rows, format));
+  out('EXPORT', { file: path, rows: rows.length, truncated });
+}
+
 const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   seed: cmdSeed,
   'discover-universities': cmdDiscoverUniversities,
@@ -290,7 +314,8 @@ const COMMANDS: Record<string, (args: Args) => Promise<void>> = {
   'reprocess-failed': cmdReprocessFailed,
   'seed-plans': cmdSeedPlans,
   cleanup: cmdCleanup,
-  'discovery-report': cmdDiscoveryReport
+  'discovery-report': cmdDiscoveryReport,
+  export: cmdExport
 };
 
 async function main(): Promise<void> {
@@ -315,6 +340,7 @@ Commands:
   reprocess-failed         Reset FAILED crawl targets and re-run them
   cleanup                  Remove expired scholarships and send admin alert
   discovery-report         Alert admin of newly discovered scholarships
+  export                   Write matching scholarships to an .xlsx or .csv file
 
 Flags:
   --dry-run                Read and classify, write nothing
@@ -326,6 +352,11 @@ Flags:
   --no-ai                  Force rule-based extraction even if AI is enabled
   --email=<addr>           Admin email for alerts (cleanup, discovery-report)
   --since=<hours>          Hours back for discovery report (default: 24)
+  --format=xlsx|csv        Export file format (default: xlsx)
+  --status=OPEN,UPCOMING   Export only these lifecycle statuses
+  --review=APPROVED        Export only these review statuses
+  --degree=MASTERS,PHD     Export only these degree levels
+  --out=<path>             Export file path (default: scholarships-<date>.<format>)
 
 Engine currently: crawler=${env.SCHOLARSHIP_CRAWLER_ENABLED} discovery=${env.UNIVERSITY_DISCOVERY_ENABLED} ai=${env.AI_EXTRACTION_ENABLED} playwright=${env.PLAYWRIGHT_ENABLED}
 `);

@@ -31,7 +31,7 @@ async function ensureFreshSession(): Promise<void> {
   await refreshInFlight;
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function fetchWithRefresh(path: string, init: RequestInit = {}): Promise<Response> {
   let res = await doFetch(path, init);
   if (res.status === 401 && path !== '/auth/login' && path !== '/auth/logout' && path !== '/auth/refresh') {
     try {
@@ -39,6 +39,33 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       res = await doFetch(path, init);
     } catch { }
   }
+  return res;
+}
+
+/**
+ * Authenticated file download. Fetched rather than linked with <a href> so
+ * the same cookie/refresh handling applies when the API is on another origin.
+ */
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const res = await fetchWithRefresh(path);
+  if (!res.ok) {
+    const text = await res.text();
+    let message = `Download failed (${res.status})`;
+    try { message = JSON.parse(text)?.error ?? message; } catch { }
+    throw new Error(message);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetchWithRefresh(path, init);
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);

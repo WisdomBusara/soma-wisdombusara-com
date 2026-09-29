@@ -1,5 +1,5 @@
 import React from 'react';
-import { apiFetch } from '../api/client';
+import { apiDownload, apiFetch } from '../api/client';
 import { DEGREE_LABELS, FUNDING_LABELS, STATUS_LABELS, label, formatDate, statusTone } from '../api/scholarships';
 
 /**
@@ -369,20 +369,41 @@ function ScholarshipTable({ onError, onNotify }: { onError: (s: string) => void;
   const [total, setTotal] = React.useState(0);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [exporting, setExporting] = React.useState<'xlsx' | 'csv' | null>(null);
+
+  const filterParams = React.useCallback(() => {
+    const qs = new URLSearchParams();
+    if (reviewOnly) qs.set('reviewStatus', 'NEEDS_REVIEW');
+    if (statusFilter) qs.set('status', statusFilter);
+    return qs;
+  }, [reviewOnly, statusFilter]);
 
   const load = React.useCallback(async () => {
     try {
-      const qs = new URLSearchParams({ page: String(page), limit: '25' });
-      if (reviewOnly) qs.set('reviewStatus', 'NEEDS_REVIEW');
-      if (statusFilter) qs.set('status', statusFilter);
+      const qs = filterParams();
+      qs.set('page', String(page));
+      qs.set('limit', '25');
       const r = await apiFetch<any>(`/admin/scholarship/scholarships?${qs}`);
       setRows(r.items);
       setTotal(r.pagination.total);
       setSelected(new Set());
     } catch (e: any) { onError(String(e?.message ?? 'Failed to load')); }
-  }, [page, reviewOnly, statusFilter, onError]);
+  }, [page, filterParams, onError]);
 
   React.useEffect(() => { void load(); }, [load]);
+
+  // Exports every match for the current filters, not just the visible page
+  const exportAll = async (format: 'xlsx' | 'csv') => {
+    setExporting(format);
+    try {
+      const qs = filterParams();
+      qs.set('format', format);
+      const date = new Date().toISOString().slice(0, 10);
+      await apiDownload(`/admin/scholarship/scholarships/export?${qs}`, `scholarships-${date}.${format}`);
+      onNotify(`Exported ${total} scholarship${total === 1 ? '' : 's'}`);
+    } catch (e: any) { onError(String(e?.message ?? 'Export failed')); }
+    finally { setExporting(null); }
+  };
 
   const review = async (id: string, action: 'APPROVE' | 'REJECT') => {
     try {
@@ -445,9 +466,18 @@ function ScholarshipTable({ onError, onNotify }: { onError: (s: string) => void;
         </label>
         <select className="input" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All statuses</option>
+          <option value="OPEN,CLOSING_SOON,UPCOMING">Open for applications</option>
           {Object.keys(STATUS_LABELS).map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
         <span className="muted">{total} total</span>
+        <div className="row" style={{ marginLeft: 'auto', gap: 6 }}>
+          <button className="btn secondary" disabled={exporting !== null || total === 0} onClick={() => exportAll('xlsx')}>
+            {exporting === 'xlsx' ? 'Exporting…' : 'Export Excel'}
+          </button>
+          <button className="btn secondary" disabled={exporting !== null || total === 0} onClick={() => exportAll('csv')}>
+            {exporting === 'csv' ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       {selected.size > 0 && (
